@@ -1,0 +1,39 @@
+{
+  "properties": [
+    {
+      "name": "app.admin.username",
+      "type": "java.lang.String",
+      "description": "Username for the seeded admin account. Set via ADMIN_USERNAME environment variable."
+    },
+    {
+      "name": "app.admin.password",
+      "type": "java.lang.String",
+      "description": "Password for the seeded admin account. Set via ADMIN_PASSWORD environment variable."
+    },
+    {
+      "name": "app.jwt.secret",
+      "type": "java.lang.String",
+      "description": "Secret key used to sign JWT tokens (minimum 256 bits). Set via JWT_SECRET environment variable."
+    },
+    {
+      "name": "app.jwt.expiration",
+      "type": "java.lang.Long",
+      "description": "JWT token expiration time in milliseconds. Defaults to 86400000 (24 hours)."
+    },
+    {
+      "name": "app.cors.allowed-origins",
+      "type": "java.lang.String",
+      "description": "Comma-separated list of allowed CORS origins. Set via CORS_ALLOWED_ORIGINS environment variable."
+    },
+    {
+      "name": "app.upload.dir",
+      "type": "java.lang.String",
+      "description": "Directory path for uploaded files. Set via UPLOAD_DIR environment variable."
+    },
+    {
+      "name": "app.restaurant.email",
+      "type": "java.lang.String",
+      "description": "Restaurant email address that receives contact form submissions. Set via RESTAURANT_EMAIL environment variable."
+    }
+  ]
+}

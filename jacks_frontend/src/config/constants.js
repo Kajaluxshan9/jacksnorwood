@@ -1,0 +1,44 @@
+import defaultHeroImage from "../assets/images/default-hero.jpeg";
+
+// Centralized configuration - all env-driven values in one place.
+// Fallback values are development defaults only.
+
+// ─── Restaurant Info ────────────────────────────────────────
+export const RESTAURANT_NAME =
+  import.meta.env.VITE_RESTAURANT_NAME || "Jack's Norwood";
+export const RESTAURANT_PHONE = import.meta.env.VITE_RESTAURANT_PHONE || "";
+export const RESTAURANT_EMAIL = import.meta.env.VITE_RESTAURANT_EMAIL || "";
+export const RESTAURANT_ADDRESS = import.meta.env.VITE_RESTAURANT_ADDRESS || "";
+export const ONLINE_ORDER_URL =
+  import.meta.env.VITE_ONLINE_ORDER_URL ||
+  "https://www.eastserve.ca/ordering/restaurant/menu?company_uid=8800cce8-d59d-4def-b06e-bd451cf76a1c&restaurant_uid=3d0c5407-0e17-459b-b406-6267a31734d1&facebook=true";
+
+// ─── Opening Hours ──────────────────────────────────────────
+export const OPENING_HOURS = [
+  {
+    day: "Monday - Thursday",
+    time: import.meta.env.VITE_HOURS_MON_THU || "11:00 AM - 10:00 PM",
+  },
+  {
+    day: "Friday - Saturday",
+    time: import.meta.env.VITE_HOURS_FRI_SAT || "11:00 AM - 12:00 AM",
+  },
+  {
+    day: "Sunday",
+    time: import.meta.env.VITE_HOURS_SUN || "12:00 PM - 9:00 PM",
+  },
+];
+
+// ─── Fallback / Placeholder Images ─────────────────────────
+// Real Unsplash photos that match the pub/restaurant theme.
+export const FALLBACK_IMAGE      = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=600&fit=crop&q=80";   // burger & fries
+export const FALLBACK_HERO       = defaultHeroImage;                                                                         // Jack's Norwood interior
+export const FALLBACK_EVENT      = "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&h=600&fit=crop&q=80";   // live music / event
+export const FALLBACK_TEAM       = "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=400&h=400&fit=crop&q=80";    // chef portrait
+export const FALLBACK_GALLERY    = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop&q=80";   // restaurant interior
+export const FALLBACK_PROMOTION  = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=800&fit=crop&q=80";   // appetising food plating
+export const FALLBACK_RESTAURANT = "https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=800&h=600&fit=crop&q=80";   // pub atmosphere
+
+// ─── Local Storage Keys ────────────────────────────────────
+export const LS_TOKEN_KEY = "jn_token";
+export const LS_USER_KEY = "jn_user";
