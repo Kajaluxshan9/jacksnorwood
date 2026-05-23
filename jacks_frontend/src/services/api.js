@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const getDefaultApiBaseUrl = () => {
+  if (window.location.hostname === 'jacksnorwoodpub.ca' || window.location.hostname === 'www.jacksnorwoodpub.ca') {
+    return 'https://api.jacksnorwoodpub.ca/api';
+  }
+
+  return 'http://localhost:8080/api';
+};
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || getDefaultApiBaseUrl();
 
 // AuthContext registers its logout function here so the axios interceptor can
 // trigger a proper React state reset rather than just wiping localStorage.

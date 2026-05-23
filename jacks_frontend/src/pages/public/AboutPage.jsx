@@ -14,10 +14,10 @@ import {
 const FALLBACK = FALLBACK_TEAM;
 
 const stats = [
-  { icon: FaAward, value: "10+", label: "Years Serving Norwood" },
-  { icon: FaUsers, value: "50k+", label: "Happy Customers" },
-  { icon: FaBeer, value: "40+", label: "Beers on Tap" },
-  { icon: FaHeart, value: "100%", label: "Local & Proud" },
+  { icon: FaAward, value: "2026", label: "Founded in Norwood" },
+  { icon: FaUsers, value: "2014", label: "Brooklin Pub Est." },
+  { icon: FaBeer, value: "Hwy 7", label: "Conveniently Located" },
+  { icon: FaHeart, value: "100%", label: "Community Focused" },
 ];
 
 export default function AboutPage() {
@@ -63,27 +63,34 @@ export default function AboutPage() {
               viewport={{ once: true }}
               transition={{ duration: 0.7 }}
             >
-              <p className="section-subtitle">Est. 2014</p>
-              <h2 className="section-title text-3xl">A Decade of Good Times</h2>
+              <p className="section-subtitle">Est. 2026 — Norwood, Ontario</p>
+              <h2 className="section-title text-3xl">Our Story</h2>
               <div className="gold-divider ml-0"></div>
               <div className="space-y-4 text-stone-600 leading-relaxed">
                 <p>
-                  Jack's Norwood started with a simple idea: create a place
-                  where everyone feels welcome. A neighbourhood pub with honest
-                  food, cold drinks, and a genuine community spirit.
+                  Located in the heart of Norwood, Ontario, Jack's Norwood Family
+                  Restaurant sits among the area's winding country roads and
+                  beautiful farmland, conveniently located on Hwy 7.
                 </p>
                 <p>
-                  When Jack Morrison opened the doors on The Parade back in
-                  2014, he had a clear vision — bring back the classic
-                  Australian pub experience with a modern twist. Fresh,
-                  locally-sourced ingredients, craft beers from South Australian
-                  breweries, and a calendar packed with live entertainment.
+                  Jack's Norwood was founded in 2026 by the team behind the highly
+                  successful Brooklin Pub, which opened in Brooklin, Ontario in 2014
+                  and has become a true cornerstone of the community. Jack's Norwood
+                  Family Restaurant was established with the same vision and dedication
+                  to quality, passion, and hospitality that has long made the Brooklin
+                  Pub a local gathering place.
                 </p>
                 <p>
-                  Today, Jack's Norwood is more than just a pub — it's a
-                  community hub. From Friday night footy to Sunday family
-                  lunches, from live music to trivia nights, there's always
-                  something happening here.
+                  At Jack's Norwood, indulge yourself in classics and chef-curated
+                  creations made with quality ingredients. We offer an extensive menu
+                  ranging from prime cut steaks, fish and chips, pastas, wings,
+                  burgers, sandwiches, salads, and breakfast items, with gluten-free
+                  and vegetarian options. Pair your meal with our signature cocktails,
+                  beer, and wine.
+                </p>
+                <p>
+                  Join us for breakfast, lunch, dinner, or drinks — dine inside our
+                  restaurant or on our patio. Don't miss our daily feature specials.
                 </p>
               </div>
             </motion.div>
@@ -111,8 +118,8 @@ export default function AboutPage() {
                   }}
                 />
                 <div className="absolute -bottom-6 -right-6 bg-pub-gold text-white p-6 rounded-xl font-display shadow-lg">
-                  <p className="text-3xl font-bold">10+</p>
-                  <p className="text-sm font-semibold">Years of Excellence</p>
+                  <p className="text-3xl font-bold">Est.</p>
+                  <p className="text-sm font-semibold">2026 · Norwood, ON</p>
                 </div>
               </div>
             </motion.div>
@@ -153,16 +160,16 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
-                title: "Quality First",
-                desc: "Every ingredient is carefully selected from local South Australian suppliers. We believe fresh produce makes better food.",
+                title: "Quality Ingredients",
+                desc: "From prime cut steaks to chef-curated creations — every dish is crafted with quality ingredients, including gluten-free and vegetarian options.",
               },
               {
-                title: "Community Focus",
-                desc: "We're not just a pub — we're a community gathering place. From local sports teams to charity events, we give back.",
+                title: "A Gathering Place",
+                desc: "We're more than just a restaurant — we're a gathering place where stories are shared, memories are made, and celebrations come to life.",
               },
               {
-                title: "Great Value",
-                desc: "Exceptional food and drinks at honest prices. We believe a great night out shouldn't break the bank.",
+                title: "Community First",
+                desc: "Built on the same values that made the Brooklin Pub a cornerstone since 2014 — quality, passion, and genuine hospitality.",
               },
             ].map(({ title, desc }, i) => (
               <motion.div
@@ -231,10 +238,11 @@ export default function AboutPage() {
       {/* CTA */}
       <section className="py-20 bg-white/70 border-y border-stone-200">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="section-title mb-4">Come Visit Us</h2>
+          <h2 className="section-title mb-4">See You at Jack's Norwood!</h2>
           <p className="text-stone-500 text-lg mb-8">
-            We'd love to have you. Just walk in or get in touch — you're always
-            welcome at Jack's.
+            Join us for breakfast, lunch, dinner, or drinks — dine inside our
+            restaurant or on our patio. We'd love to have you. You're always
+            welcome at Jack's Norwood.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/contact" className="btn-primary">
