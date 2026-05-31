@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import SEO from '../../components/seo/SEO';
 import { motion } from 'framer-motion';
 import { FaCalendarAlt, FaClock, FaTicketAlt } from 'react-icons/fa';
 import { eventAPI, resolveImageUrl } from "../../services/api";
@@ -34,6 +35,11 @@ export default function EventsPage() {
 
   return (
     <div className="min-h-screen pt-20">
+      <SEO
+        title="Upcoming Events"
+        description="Live music, trivia nights, and special events at Jack's Norwood Pub in Norwood, Ontario. Check out what's coming up."
+        canonical="/events"
+      />
       <div
         className="relative py-24 bg-cover bg-center"
         style={{

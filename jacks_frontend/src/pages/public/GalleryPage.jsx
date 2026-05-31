@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import SEO from '../../components/seo/SEO';
 import { FaTimes, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { galleryAPI, resolveImageUrl } from '../../services/api';
 import SectionHeader from '../../components/ui/SectionHeader';
@@ -46,6 +47,11 @@ export default function GalleryPage() {
 
   return (
     <div className="min-h-screen pt-20">
+      <SEO
+        title="Photo Gallery"
+        description="Photos of food, drinks, events, and atmosphere at Jack's Norwood Pub &amp; Restaurant in Norwood, Ontario."
+        canonical="/gallery"
+      />
       <div
         className="relative py-24 bg-cover bg-center"
         style={{

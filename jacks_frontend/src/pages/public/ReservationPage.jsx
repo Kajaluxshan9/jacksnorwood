@@ -1,5 +1,6 @@
 import { useForm } from 'react-hook-form';
 import { useState, useEffect } from "react";
+import SEO from '../../components/seo/SEO';
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -74,6 +75,11 @@ export default function ReservationPage() {
 
   return (
     <div className="min-h-screen pt-20">
+      <SEO
+        title="Book a Table"
+        description="Reserve your table at Jack's Norwood Pub &amp; Restaurant in Norwood, Ontario. Easy online bookings for any occasion."
+        canonical="/reservation"
+      />
       <div
         className="relative py-24 bg-cover bg-center"
         style={{

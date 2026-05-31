@@ -1,0 +1,20 @@
+{
+  "name": "Jack's Norwood Pub & Restaurant",
+  "short_name": "Jack's Norwood",
+  "description": "Your neighbourhood pub and restaurant in Norwood, Ontario.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1208",
+  "theme_color": "#1a1208",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "restaurants"],
+  "lang": "en-CA"
+}

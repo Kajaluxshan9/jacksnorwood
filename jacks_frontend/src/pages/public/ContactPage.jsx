@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import SEO from '../../components/seo/SEO';
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -85,6 +86,11 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen pt-20">
+      <SEO
+        title="Contact &amp; Find Us"
+        description="Contact Jack's Norwood. Find us at 4327 Highway 7, Norwood, ON K0L 2V0. Call +1 (705) 639-0399 or email us."
+        canonical="/contact"
+      />
       <div
         className="relative py-24 bg-cover bg-center"
         style={{

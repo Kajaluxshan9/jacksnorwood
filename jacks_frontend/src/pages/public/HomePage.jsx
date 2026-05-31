@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import SEO from '../../components/seo/SEO';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FaMapMarkerAlt,
@@ -81,6 +82,10 @@ export default function HomePage() {
 
   return (
     <div>
+      <SEO
+        description="Jack's Norwood is your neighbourhood pub and restaurant in Norwood, Ontario. Great food, cold drinks, daily specials, and live events. Open 7 days a week."
+        canonical="/"
+      />
       {/* Specials popup — shows once per session */}
       <SpecialsPopup />
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import SEO from '../../components/seo/SEO';
 import { motion } from 'framer-motion';
 import { FaCalendarAlt, FaSun, FaStar } from 'react-icons/fa';
 import { promotionAPI, resolveImageUrl } from '../../services/api';
@@ -101,6 +102,11 @@ export default function PromotionsPage() {
 
   return (
     <div className="min-h-screen pt-20">
+      <SEO
+        title="Daily Specials &amp; Promotions"
+        description="Check out our daily specials and featured promotions at Jack's Norwood Pub in Norwood, Ontario. Great value food and drinks every day."
+        canonical="/promotions"
+      />
       <div
         className="relative py-24 bg-cover bg-center"
         style={{

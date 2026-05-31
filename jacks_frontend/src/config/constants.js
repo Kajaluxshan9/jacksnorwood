@@ -4,9 +4,12 @@
 // ─── Restaurant Info ────────────────────────────────────────
 export const RESTAURANT_NAME =
   import.meta.env.VITE_RESTAURANT_NAME || "Jack's Norwood";
-export const RESTAURANT_PHONE = import.meta.env.VITE_RESTAURANT_PHONE || "";
-export const RESTAURANT_EMAIL = import.meta.env.VITE_RESTAURANT_EMAIL || "";
-export const RESTAURANT_ADDRESS = import.meta.env.VITE_RESTAURANT_ADDRESS || "";
+export const RESTAURANT_PHONE =
+  import.meta.env.VITE_RESTAURANT_PHONE || "+1 (705) 639-0399";
+export const RESTAURANT_EMAIL =
+  import.meta.env.VITE_RESTAURANT_EMAIL || "info.jacksnorwood@gmail.com";
+export const RESTAURANT_ADDRESS =
+  import.meta.env.VITE_RESTAURANT_ADDRESS || "4327 Highway 7, Norwood, ON K0L 2V0";
 export const ONLINE_ORDER_URL =
   import.meta.env.VITE_ONLINE_ORDER_URL ||
   "https://www.eastserve.ca/ordering/restaurant/menu?company_uid=8800cce8-d59d-4def-b06e-bd451cf76a1c&restaurant_uid=3d0c5407-0e17-459b-b406-6267a31734d1&facebook=true";
@@ -19,7 +22,7 @@ export const OPENING_HOURS = [
   },
   {
     day: "Thursday - Saturday",
-    time: import.meta.env.VITE_HOURS_THU_SAT || "08:00 AM - 10:00 AM",
+    time: import.meta.env.VITE_HOURS_THU_SAT || "08:00 AM - 10:00 PM",
   },
 ];
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import SEO from '../../components/seo/SEO';
 import { FaHeart, FaUsers, FaAward, FaBeer } from 'react-icons/fa';
 import SectionHeader from '../../components/ui/SectionHeader';
 import { Link } from 'react-router-dom';
@@ -36,6 +37,11 @@ export default function AboutPage() {
   }, []);
   return (
     <div className="min-h-screen pt-20">
+      <SEO
+        title="About Us"
+        description="The story behind Jack's Norwood — a community-focused pub and restaurant on Highway 7 in Norwood, Ontario."
+        canonical="/about"
+      />
       {/* Hero */}
       <div
         className="relative py-32 bg-cover bg-center"

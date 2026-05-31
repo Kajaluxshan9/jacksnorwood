@@ -1,0 +1,4 @@
+# Netlify / Cloudflare Pages / Render SPA fallback.
+# Static files (including pre-rendered /menu/index.html) are served first.
+# This catchall only fires when no static file matches.
+/*    /index.html    200

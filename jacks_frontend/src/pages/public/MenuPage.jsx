@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import SEO from '../../components/seo/SEO';
 import { motion } from 'framer-motion';
 import { FaFire, FaLeaf } from 'react-icons/fa';
 import { menuAPI, resolveImageUrl } from '../../services/api';
@@ -177,6 +178,11 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-screen pt-20">
+      <SEO
+        title="Menu"
+        description="Explore our full pub menu — classic meals, daily specials, and a great selection of drinks at Jack's Norwood in Norwood, ON."
+        canonical="/menu"
+      />
 
       {/* ── Mobile sticky subcategory bar ───────────────────────────────────── */}
       {hasSubcategories && !loading && sections.length > 0 && (
