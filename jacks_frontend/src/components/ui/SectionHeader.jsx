@@ -1,13 +1,25 @@
 export default function SectionHeader({ subtitle, title, description, light = false, center = true }) {
   return (
-    <div className={`mb-12 ${center ? 'text-center' : ''}`}>
+    <div className={`mb-14 ${center ? 'text-center' : ''}`}>
       {subtitle && (
-        <p className="section-subtitle">{subtitle}</p>
+        <div className={`inline-flex items-center gap-3 mb-5 ${center ? 'justify-center' : ''}`}>
+          <span className={`block w-7 h-px ${light ? 'bg-white/40' : 'bg-pub-gold/60'}`} />
+          <span className={`text-xs font-semibold tracking-[0.25em] uppercase ${light ? 'text-white/65' : 'text-pub-gold'}`}>
+            {subtitle}
+          </span>
+          <span className={`block w-7 h-px ${light ? 'bg-white/40' : 'bg-pub-gold/60'}`} />
+        </div>
       )}
-      <h2 className={`section-title ${light ? 'text-white' : 'text-pub-text'}`}>{title}</h2>
-      <div className={`h-0.5 w-16 bg-pub-gold my-4 ${center ? 'mx-auto' : ''}`}></div>
+      <h2
+        className={`font-display text-3xl md:text-4xl lg:text-5xl font-bold ${light ? 'text-white' : 'text-pub-text'}`}
+        style={{ lineHeight: 1.08, letterSpacing: '-0.025em' }}
+      >
+        {title}
+      </h2>
       {description && (
-        <p className={`${light ? 'text-white/60' : 'text-stone-500'} max-w-2xl ${center ? 'mx-auto' : ''} text-lg leading-relaxed`}>
+        <p
+          className={`mt-5 text-lg leading-relaxed max-w-2xl ${center ? 'mx-auto' : ''} ${light ? 'text-white/55' : 'text-stone-500'}`}
+        >
           {description}
         </p>
       )}

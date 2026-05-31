@@ -11,13 +11,13 @@ export default function SEO({
   description,
   canonical,
   ogImage = DEFAULT_OG_IMAGE,
-  ogImageAlt = "Jack's Norwood Pub & Restaurant in Norwood, Ontario",
+  ogImageAlt = "Jack's Norwood Pub and Restaurant in Norwood, Ontario",
   ogType = 'website',
   noindex = false,
 }) {
   const fullTitle = title
     ? `${title} | ${SITE_NAME}`
-    : `${SITE_NAME} | Pub & Restaurant in Norwood, Ontario`;
+    : `${SITE_NAME} | Pub and Restaurant in Norwood, Ontario`;
 
   return (
     <Helmet>

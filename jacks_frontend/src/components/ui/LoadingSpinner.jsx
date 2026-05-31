@@ -1,8 +1,18 @@
-export default function LoadingSpinner({ message = 'Loading...' }) {
+export default function LoadingSpinner({ message = '' }) {
   return (
-    <div className="flex flex-col items-center justify-center py-24 gap-4">
-      <div className="w-12 h-12 border-4 border-pub-gold/30 border-t-pub-gold rounded-full animate-spin"></div>
-      <p className="text-white/50 text-sm">{message}</p>
+    <div className="flex flex-col items-center justify-center py-24 gap-6">
+      <div className="flex items-center gap-2">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="w-2 h-2 rounded-full bg-pub-gold animate-pulse"
+            style={{ animationDelay: `${i * 180}ms`, animationDuration: '1.1s' }}
+          />
+        ))}
+      </div>
+      {message && (
+        <p className="text-stone-400 text-xs tracking-[0.2em] uppercase">{message}</p>
+      )}
     </div>
   );
 }

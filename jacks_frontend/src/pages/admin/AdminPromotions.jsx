@@ -451,7 +451,7 @@ function PromoCard({ p, onEdit, onDelete }) {
         {!isDaily && p.endDateTime && (
           <p className="text-white/30 text-xs mb-2">
             Ends:{" "}
-            {new Date(p.endDateTime).toLocaleString("en-AU", {
+            {new Date(p.endDateTime).toLocaleString("en-CA", {
               dateStyle: "short",
               timeStyle: "short",
             })}

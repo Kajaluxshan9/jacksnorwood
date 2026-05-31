@@ -120,45 +120,58 @@ export default function AdminNewsletter() {
     <div>
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-white font-display text-3xl font-bold">Newsletter</h1>
-          <p className="text-white/40 text-sm mt-1">{subscribers.length} subscribers</p>
+          <h1 className="text-white font-display text-3xl font-bold">
+            Newsletter
+          </h1>
+          <p className="text-white/40 text-sm mt-1">
+            {subscribers.length} subscribers
+          </p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-8">
         {[
-          { key: 'send', label: 'Send Newsletter', icon: FaPaperPlane },
-          { key: 'subscribers', label: 'Subscribers', icon: HiMail },
+          { key: "send", label: "Send Newsletter", icon: FaPaperPlane },
+          { key: "subscribers", label: "Subscribers", icon: HiMail },
         ].map(({ key, label, icon: Icon }) => (
-          <button key={key} onClick={() => setTab(key)}
+          <button
+            key={key}
+            onClick={() => setTab(key)}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${
-              tab === key ? 'bg-pub-gold text-pub-dark' : 'bg-gray-800 text-white/60 hover:bg-gray-700'
-            }`}>
+              tab === key
+                ? "bg-pub-gold text-pub-dark"
+                : "bg-gray-800 text-white/60 hover:bg-gray-700"
+            }`}
+          >
             <Icon size={14} /> {label}
           </button>
         ))}
       </div>
 
-      {tab === 'send' && (
+      {tab === "send" && (
         <div className="max-w-2xl">
           {/* Topic selector */}
           <div className="mb-6">
-            <p className="text-white/50 text-xs uppercase tracking-wider mb-3">Select Topic</p>
+            <p className="text-white/50 text-xs uppercase tracking-wider mb-3">
+              Select Topic
+            </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {TOPICS.map(topic => (
+              {TOPICS.map((topic) => (
                 <button
                   key={topic.key}
                   type="button"
                   onClick={() => selectTopic(topic)}
                   className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-semibold transition-all ${
                     selectedTopic === topic.key
-                      ? 'bg-pub-gold/20 border-pub-gold text-pub-gold'
-                      : 'bg-gray-800 border-white/10 text-white/60 hover:border-white/30 hover:text-white'
+                      ? "bg-pub-gold/20 border-pub-gold text-pub-gold"
+                      : "bg-gray-800 border-white/10 text-white/60 hover:border-white/30 hover:text-white"
                   }`}
                 >
                   <span className="text-xl">{topic.icon}</span>
-                  <span className="text-xs leading-tight text-center">{topic.label}</span>
+                  <span className="text-xs leading-tight text-center">
+                    {topic.label}
+                  </span>
                 </button>
               ))}
             </div>
@@ -167,14 +180,18 @@ export default function AdminNewsletter() {
           {/* Compose form — shown once topic selected */}
           <div className="bg-gray-900 border border-white/10 rounded-2xl p-6">
             <h2 className="text-white font-display text-xl font-semibold mb-6">
-              {activeTopic ? `${activeTopic.icon} ${activeTopic.label}` : 'Compose Newsletter'}
+              {activeTopic
+                ? `${activeTopic.icon} ${activeTopic.label}`
+                : "Compose Newsletter"}
             </h2>
             <form onSubmit={handleSend} className="space-y-4">
               <div>
-                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">Subject *</label>
+                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
+                  Subject *
+                </label>
                 <input
                   value={subject}
-                  onChange={e => setSubject(e.target.value)}
+                  onChange={(e) => setSubject(e.target.value)}
                   placeholder="Email subject line"
                   className={inputCls}
                 />
@@ -191,19 +208,29 @@ export default function AdminNewsletter() {
               )}
 
               <div>
-                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">Message *</label>
+                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
+                  Message *
+                </label>
                 <textarea
                   value={body}
-                  onChange={e => setBody(e.target.value)}
+                  onChange={(e) => setBody(e.target.value)}
                   rows={12}
-                  placeholder={selectedTopic ? 'Edit the template above...' : 'Select a topic above or write your message here...'}
-                  className={inputCls + ' resize-none'}
+                  placeholder={
+                    selectedTopic
+                      ? "Edit the template above..."
+                      : "Select a topic above or write your message here..."
+                  }
+                  className={inputCls + " resize-none"}
                 />
               </div>
 
               <div className="bg-gray-800/50 rounded-lg px-4 py-3 text-white/50 text-sm flex items-center gap-2">
                 <HiMail size={16} />
-                Will be sent to <span className="text-pub-gold font-semibold">{subscribers.length}</span> subscriber{subscribers.length !== 1 ? 's' : ''}
+                Will be sent to{" "}
+                <span className="text-pub-gold font-semibold">
+                  {subscribers.length}
+                </span>{" "}
+                subscriber{subscribers.length !== 1 ? "s" : ""}
               </div>
 
               <button
@@ -212,14 +239,14 @@ export default function AdminNewsletter() {
                 className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <FaPaperPlane size={14} />
-                {sending ? 'Sending...' : 'Send Newsletter'}
+                {sending ? "Sending..." : "Send Newsletter"}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {tab === 'subscribers' && (
+      {tab === "subscribers" && (
         <div className="bg-gray-900 border border-white/10 rounded-2xl overflow-hidden">
           {loading ? (
             <div className="text-white/50 text-center py-10">Loading...</div>
@@ -232,10 +259,18 @@ export default function AdminNewsletter() {
             <table className="w-full text-sm">
               <thead className="bg-gray-800/60 border-b border-white/10">
                 <tr>
-                  <th className="text-left text-white/50 uppercase tracking-wider px-4 py-3 text-xs">#</th>
-                  <th className="text-left text-white/50 uppercase tracking-wider px-4 py-3 text-xs">Email</th>
-                  <th className="text-left text-white/50 uppercase tracking-wider px-4 py-3 text-xs hidden sm:table-cell">Name</th>
-                  <th className="text-left text-white/50 uppercase tracking-wider px-4 py-3 text-xs hidden md:table-cell">Subscribed</th>
+                  <th className="text-left text-white/50 uppercase tracking-wider px-4 py-3 text-xs">
+                    #
+                  </th>
+                  <th className="text-left text-white/50 uppercase tracking-wider px-4 py-3 text-xs">
+                    Email
+                  </th>
+                  <th className="text-left text-white/50 uppercase tracking-wider px-4 py-3 text-xs hidden sm:table-cell">
+                    Name
+                  </th>
+                  <th className="text-left text-white/50 uppercase tracking-wider px-4 py-3 text-xs hidden md:table-cell">
+                    Subscribed
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -243,9 +278,13 @@ export default function AdminNewsletter() {
                   <tr key={s.id} className="hover:bg-white/5 transition-colors">
                     <td className="px-4 py-3 text-white/30 text-xs">{i + 1}</td>
                     <td className="px-4 py-3 text-white">{s.email}</td>
-                    <td className="px-4 py-3 text-white/50 hidden sm:table-cell">{s.name || '—'}</td>
+                    <td className="px-4 py-3 text-white/50 hidden sm:table-cell">
+                      {s.name || "—"}
+                    </td>
                     <td className="px-4 py-3 text-white/30 text-xs hidden md:table-cell">
-                      {s.subscribedAt ? new Date(s.subscribedAt).toLocaleDateString('en-AU') : '—'}
+                      {s.subscribedAt
+                        ? new Date(s.subscribedAt).toLocaleDateString("en-CA")
+                        : "—"}
                     </td>
                   </tr>
                 ))}
