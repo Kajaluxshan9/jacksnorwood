@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { menuAPI, resolveImageUrl } from '../../services/api';
-import { HiPlus, HiPencil, HiTrash, HiX, HiChevronDown, HiChevronRight } from 'react-icons/hi';
+import { HiPlus, HiPencil, HiTrash, HiX, HiChevronDown, HiChevronRight, HiArrowRight, HiSwitchHorizontal } from 'react-icons/hi';
 import { FaFire, FaLeaf } from 'react-icons/fa';
 import ImageUpload from '../../components/ui/ImageUpload';
 import { FALLBACK_IMAGE } from '../../config/constants';
@@ -20,6 +20,30 @@ export default function AdminMenu() {
   const [expandedSubs, setExpandedSubs] = useState({});
 
   const [isActive, setIsActive] = useState(true);
+
+  // ── Bulk selection & restructure actions ─────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkCat, setBulkCat] = useState('');
+  const [bulkSub, setBulkSub] = useState('');
+  const [convertCat, setConvertCat] = useState(null); // category being converted → subcategory
+  const [convertTarget, setConvertTarget] = useState('');
+  const [convertName, setConvertName] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const toggleSelect = (id) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  const setManySelected = (ids, on) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  const clearSelection = () => setSelectedIds(new Set());
 
   const load = () => {
     Promise.all([
@@ -231,6 +255,76 @@ export default function AdminMenu() {
     }
   };
 
+  // ── Bulk move selected items ───────────────────────────────────────────────────
+  const openBulkMove = () => { setBulkCat(''); setBulkSub(''); setBulkOpen(true); };
+  const bulkSubOptions = bulkCat
+    ? subcategories.filter((s) => String(s.categoryId) === String(bulkCat))
+    : [];
+
+  const applyBulkMove = async () => {
+    if (!bulkCat) { toast.error('Choose a target category'); return; }
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setBusy(true);
+    try {
+      await Promise.all(ids.map((id) =>
+        menuAPI.update(id, {
+          categoryId: parseInt(bulkCat),
+          subcategoryId: bulkSub ? parseInt(bulkSub) : null,
+        })
+      ));
+      toast.success(`Moved ${ids.length} item${ids.length !== 1 ? 's' : ''}`);
+      setBulkOpen(false);
+      clearSelection();
+      load();
+    } catch {
+      toast.error('Some items failed to move');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ── Convert a whole category into a subcategory under another category ──────────
+  const openConvert = (cat) => {
+    const main = categories.find((c) => /main\s*menu/i.test(c.name) && c.id !== cat.id);
+    setConvertTarget(main ? String(main.id) : '');
+    setConvertName(cat.name);
+    setConvertCat(cat);
+  };
+
+  const applyConvert = async () => {
+    if (!convertCat) return;
+    if (!convertTarget) { toast.error('Choose the menu to nest it under'); return; }
+    if (String(convertTarget) === String(convertCat.id)) { toast.error('Pick a different target menu'); return; }
+    const src = convertCat;
+    const targetId = parseInt(convertTarget);
+    const name = convertName.trim() || src.name;
+    setBusy(true);
+    try {
+      // 1. Create the new subcategory under the target menu
+      const { data: newSub } = await menuAPI.createSubcategory({
+        name,
+        categoryId: targetId,
+        displayOrder: src.displayOrder ?? null,
+      });
+      // 2. Move every item currently in this category into the new subcategory
+      const srcItems = items.filter((i) => i.categoryId === src.id);
+      await Promise.all(srcItems.map((i) =>
+        menuAPI.update(i.id, { categoryId: targetId, subcategoryId: newSub.id })
+      ));
+      // 3. Delete the now-empty source category (also clears its old subcategories)
+      await menuAPI.deleteCategory(src.id);
+      toast.success(`"${src.name}" moved under the selected menu (${srcItems.length} items)`);
+      setConvertCat(null);
+      clearSelection();
+      load();
+    } catch {
+      toast.error('Convert failed — please retry');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const inputCls = 'w-full bg-gray-800 border border-white/20 text-white placeholder-white/40 px-3 py-2 rounded-lg focus:outline-none focus:border-pub-gold text-sm';
 
   // build lookup maps for quick rendering
@@ -286,6 +380,8 @@ export default function AdminMenu() {
             const directItems = itemsDirectByCategory[cat.id] || [];
             const catItemCount = catSubs.reduce((n, s) => n + (itemsBySubcategory[s.id]?.length || 0), 0) + directItems.length;
             const expanded = expandedCats[cat.id];
+            const catItemIds = items.filter((i) => i.categoryId === cat.id).map((i) => i.id);
+            const allCatSelected = catItemIds.length > 0 && catItemIds.every((id) => selectedIds.has(id));
 
             return (
               <div key={cat.id} className="bg-gray-900 border border-white/10 rounded-xl overflow-hidden">
@@ -294,6 +390,15 @@ export default function AdminMenu() {
                   <button onClick={() => toggleCat(cat.id)} className="text-white/50 hover:text-white transition-colors flex-shrink-0">
                     {expanded ? <HiChevronDown size={18} /> : <HiChevronRight size={18} />}
                   </button>
+                  {catItemIds.length > 0 && (
+                    <input
+                      type="checkbox"
+                      checked={allCatSelected}
+                      onChange={(e) => setManySelected(catItemIds, e.target.checked)}
+                      className="w-4 h-4 accent-pub-gold flex-shrink-0 cursor-pointer"
+                      title="Select all items in this category"
+                    />
+                  )}
                   {cat.imageUrl && (
                     <img
                       src={resolveImageUrl(cat.imageUrl, FALLBACK_IMAGE)}
@@ -319,6 +424,13 @@ export default function AdminMenu() {
                     >
                       <HiPlus size={12} /> Item
                     </button>
+                    <button
+                      onClick={() => openConvert(cat)}
+                      className="text-xs px-3 py-1.5 border border-white/20 text-white/60 rounded hover:bg-white/5 transition-colors flex items-center gap-1"
+                      title="Convert this whole category into a subcategory under another menu"
+                    >
+                      <HiSwitchHorizontal size={12} /> To subcategory
+                    </button>
                     <button onClick={() => openEditCategory(cat)} className="text-blue-400 hover:text-blue-300 p-1.5 rounded hover:bg-blue-500/10 transition-colors">
                       <HiPencil size={15} />
                     </button>
@@ -342,6 +454,15 @@ export default function AdminMenu() {
                             <button onClick={() => toggleSub(sub.id)} className="text-white/40 hover:text-white/70 transition-colors flex-shrink-0">
                               {subExpanded ? <HiChevronDown size={15} /> : <HiChevronRight size={15} />}
                             </button>
+                            {subItems.length > 0 && (
+                              <input
+                                type="checkbox"
+                                checked={subItems.every((i) => selectedIds.has(i.id))}
+                                onChange={(e) => setManySelected(subItems.map((i) => i.id), e.target.checked)}
+                                className="w-3.5 h-3.5 accent-pub-gold flex-shrink-0 cursor-pointer"
+                                title="Select all items in this subcategory"
+                              />
+                            )}
                             {sub.imageUrl && (
                               <img
                                 src={resolveImageUrl(sub.imageUrl, FALLBACK_IMAGE)}
@@ -372,7 +493,8 @@ export default function AdminMenu() {
                           {subExpanded && subItems.length > 0 && (
                             <div className="divide-y divide-white/5">
                               {subItems.map((item) => (
-                                <ItemRow key={item.id} item={item} onEdit={openEditItem} onDelete={handleDeleteItem} />
+                                <ItemRow key={item.id} item={item} onEdit={openEditItem} onDelete={handleDeleteItem}
+                                  selected={selectedIds.has(item.id)} onToggleSelect={toggleSelect} />
                               ))}
                             </div>
                           )}
@@ -393,7 +515,8 @@ export default function AdminMenu() {
                         )}
                         <div className="divide-y divide-white/5">
                           {directItems.map((item) => (
-                            <ItemRow key={item.id} item={item} onEdit={openEditItem} onDelete={handleDeleteItem} />
+                            <ItemRow key={item.id} item={item} onEdit={openEditItem} onDelete={handleDeleteItem}
+                              selected={selectedIds.has(item.id)} onToggleSelect={toggleSelect} />
                           ))}
                         </div>
                       </div>
@@ -539,15 +662,99 @@ export default function AdminMenu() {
           </div>
         </div>
       )}
+
+      {/* ── Floating bulk-action bar ─────────────────────────────────────────────── */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 border border-pub-gold/40 shadow-2xl rounded-full px-5 py-3">
+          <span className="text-white text-sm font-semibold">{selectedIds.size} selected</span>
+          <button onClick={openBulkMove} className="btn-primary text-sm flex items-center gap-1.5 py-1.5">
+            <HiArrowRight size={15} /> Move to…
+          </button>
+          <button onClick={clearSelection} className="text-white/50 hover:text-white text-sm px-2">
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* ── Bulk Move Modal ─────────────────────────────────────────────────────── */}
+      {bulkOpen && (
+        <Modal title={`Move ${selectedIds.size} item${selectedIds.size !== 1 ? 's' : ''}`} onClose={() => setBulkOpen(false)}>
+          <div className="space-y-4">
+            <Field label="Target Category *">
+              <select value={bulkCat} onChange={(e) => { setBulkCat(e.target.value); setBulkSub(''); }} className={inputCls}>
+                <option value="">Select category...</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Target Subcategory">
+              <select value={bulkSub} onChange={(e) => setBulkSub(e.target.value)} className={inputCls} disabled={!bulkCat}>
+                <option value="">None (directly under category)</option>
+                {bulkSubOptions.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </Field>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setBulkOpen(false)} className="flex-1 border border-white/20 text-white/70 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-sm">
+                Cancel
+              </button>
+              <button type="button" onClick={applyBulkMove} disabled={busy || !bulkCat} className="flex-1 btn-primary disabled:opacity-50 text-sm">
+                {busy ? 'Moving...' : 'Move items'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Convert Category → Subcategory Modal ─────────────────────────────────── */}
+      {convertCat && (
+        <Modal title={`Convert "${convertCat.name}"`} onClose={() => setConvertCat(null)}>
+          <div className="space-y-4">
+            <p className="text-white/50 text-xs leading-relaxed">
+              This turns <span className="text-white/80 font-semibold">{convertCat.name}</span> into a subcategory under the
+              menu you choose, moves all its items across, then removes the old category.
+            </p>
+            <Field label="Nest under menu *">
+              <select value={convertTarget} onChange={(e) => setConvertTarget(e.target.value)} className={inputCls}>
+                <option value="">Select target menu...</option>
+                {categories.filter((c) => c.id !== convertCat.id).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Subcategory name *">
+              <input value={convertName} onChange={(e) => setConvertName(e.target.value)} className={inputCls} />
+            </Field>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setConvertCat(null)} className="flex-1 border border-white/20 text-white/70 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-sm">
+                Cancel
+              </button>
+              <button type="button" onClick={applyConvert} disabled={busy || !convertTarget} className="flex-1 btn-primary disabled:opacity-50 text-sm">
+                {busy ? 'Converting...' : 'Convert'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
 // ── Small reusable helpers ────────────────────────────────────────────────────
 
-function ItemRow({ item, onEdit, onDelete }) {
+function ItemRow({ item, onEdit, onDelete, selected, onToggleSelect }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 pl-20 hover:bg-white/5 transition-colors">
+    <div className={`flex items-center gap-3 px-4 py-2.5 pl-20 transition-colors ${selected ? 'bg-pub-gold/10' : 'hover:bg-white/5'}`}>
+      {onToggleSelect && (
+        <input
+          type="checkbox"
+          checked={!!selected}
+          onChange={() => onToggleSelect(item.id)}
+          className="w-4 h-4 accent-pub-gold flex-shrink-0 cursor-pointer"
+        />
+      )}
       <div className="flex-1 min-w-0">
         <span className="text-white text-sm">{item.name}</span>
         {item.description && (

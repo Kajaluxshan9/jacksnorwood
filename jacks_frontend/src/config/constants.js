@@ -28,7 +28,7 @@ export const OPENING_HOURS = [
 
 // ─── Fallback / Placeholder Images ─────────────────────────
 // Real Unsplash photos that match the pub/restaurant theme.
-export const FALLBACK_IMAGE      = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=600&fit=crop&q=80";   // burger & fries
+export const FALLBACK_IMAGE      = "/images/home/popular-fallback.jpg";                                                       // Jack's burger & fries (real photo)
 export const FALLBACK_HERO       = "/default-hero.jpeg";                                                                     // Jack's Norwood interior
 export const FALLBACK_EVENT      = "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&h=600&fit=crop&q=80";   // live music / event
 export const FALLBACK_TEAM       = "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=400&h=400&fit=crop&q=80";    // chef portrait

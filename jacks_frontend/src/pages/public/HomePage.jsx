@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import SEO from '../../components/seo/SEO';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaMapMarkerAlt, FaPhone, FaClock, FaChevronLeft, FaChevronRight, FaArrowRight } from 'react-icons/fa';
-import { menuAPI, promotionAPI, heroImageAPI, galleryAPI, resolveImageUrl } from '../../services/api';
+import { menuAPI, promotionAPI, heroImageAPI, resolveImageUrl } from '../../services/api';
 import MenuItemCard from '../../components/ui/MenuItemCard';
 import SectionHeader from '../../components/ui/SectionHeader';
 import SpecialsPopup from '../../components/ui/SpecialsPopup';
@@ -21,7 +21,6 @@ export default function HomePage() {
   const [loadingMenu,   setLoadingMenu]   = useState(true);
   const [heroImages,    setHeroImages]    = useState([]);
   const [heroIndex,     setHeroIndex]     = useState(0);
-  const [galleryImages, setGalleryImages] = useState([]);
   const timerRef = useRef(null);
 
   useEffect(() => {
@@ -29,7 +28,6 @@ export default function HomePage() {
       menuAPI.getPopular().then((r)       => setPopularItems(r.data.slice(0, 6))),
       promotionAPI.getActive().then((r)   => setPromotions(r.data.slice(0, 3))),
       heroImageAPI.getActive().then((r)   => setHeroImages(r.data)),
-      galleryAPI.getAll().then((r)        => setGalleryImages(r.data)),
     ])
       .catch(console.error)
       .finally(() => setLoadingMenu(false));
@@ -321,31 +319,27 @@ export default function HomePage() {
               className="grid grid-cols-2 gap-4"
             >
               {[
-                { alt: 'Bar', offsetClass: '' },
-                { alt: 'Food', offsetClass: 'mt-8' },
-                { alt: 'Drinks', offsetClass: '-mt-8' },
-                { alt: 'Atmosphere', offsetClass: '' },
-              ].map(({ alt, offsetClass }, i) => {
-                const img = galleryImages[i];
-                const src = img?.imageUrl ? resolveImageUrl(img.imageUrl, FALLBACK_GALLERY) : FALLBACK_GALLERY;
-                return (
-                  <motion.div
-                    key={alt}
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ duration: 0.3 }}
-                    className={`overflow-hidden rounded-lg h-48 w-full shadow ${offsetClass}`}
-                  >
-                    <img
-                      src={src}
-                      alt={alt}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                      onError={(e) => { e.target.src = FALLBACK_GALLERY; }}
-                    />
-                  </motion.div>
-                );
-              })}
+                { alt: 'Handcrafted burger with fries', src: '/images/home/landmark-burger.jpg' },
+                { alt: 'Beer-battered fish & chips', src: '/images/home/landmark-fish-chips.jpg' },
+                { alt: 'Wood-fired meat lovers pizza', src: '/images/home/landmark-pizza.jpg' },
+                { alt: 'Butter chicken with rice & naan', src: '/images/home/landmark-butter-chicken.jpg' },
+              ].map(({ alt, src }) => (
+                <motion.div
+                  key={alt}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden rounded-lg h-44 sm:h-48 w-full shadow-sm border border-stone-100 bg-white flex items-center justify-center"
+                >
+                  <img
+                    src={src}
+                    alt={alt}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-500"
+                    onError={(e) => { e.target.src = FALLBACK_GALLERY; }}
+                  />
+                </motion.div>
+              ))}
             </motion.div>
           </div>
         </div>
