@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SEO from '../../components/seo/SEO';
 import { FaTimes, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
@@ -7,7 +7,13 @@ import PageHero from '../../components/ui/PageHero';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { FALLBACK_GALLERY, FALLBACK_HERO } from '../../config/constants';
 
-const CATEGORIES = ['all', 'food', 'drinks', 'events', 'interior'];
+// Baseline tabs; the real list is merged with whatever categories the gallery
+// actually contains. The hard-coded list alone meant any category the admin
+// created was unreachable — its photos only ever showed under "All Photos".
+const DEFAULT_CATEGORIES = ['food', 'drinks', 'events', 'interior'];
+
+const titleCase = (value) =>
+  value.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 export default function GalleryPage() {
   const [images,          setImages]         = useState([]);
@@ -21,22 +27,46 @@ export default function GalleryPage() {
     heroImageAPI.getActive().then((r) => setHeroImages(r.data)).catch(() => {});
   }, []);
 
-  const filtered = activeCategory === 'all' ? images : images.filter((img) => img.category === activeCategory);
+  // Tabs = the defaults plus any category actually present in the data, so
+  // custom categories added in the admin panel are reachable here.
+  const categories = useMemo(() => {
+    const used = images.map((img) => img.category).filter(Boolean);
+    return ['all', ...new Set([...DEFAULT_CATEGORIES, ...used])];
+  }, [images]);
 
-  const closeLightbox = () => setLightbox(null);
-  const prevImage     = () => setLightbox((l) => (l - 1 + filtered.length) % filtered.length);
-  const nextImage     = () => setLightbox((l) => (l + 1) % filtered.length);
+  const filtered = useMemo(
+    () => (activeCategory === 'all' ? images : images.filter((img) => img.category === activeCategory)),
+    [images, activeCategory],
+  );
+
+  // Switching filters rebuilds `filtered`, so a lightbox index from the previous
+  // list would point at the wrong photo (or past the end).
+  const selectCategory = (cat) => {
+    setLightbox(null);
+    setActiveCategory(cat);
+  };
+
+  const count = filtered.length;
+  const closeLightbox = useCallback(() => setLightbox(null), []);
+  const prevImage = useCallback(
+    () => setLightbox((l) => (l - 1 + count) % count),
+    [count],
+  );
+  const nextImage = useCallback(
+    () => setLightbox((l) => (l + 1) % count),
+    [count],
+  );
 
   useEffect(() => {
+    if (lightbox === null) return undefined;
     const handler = (e) => {
-      if (lightbox === null) return;
-      if (e.key === 'Escape')      closeLightbox();
-      if (e.key === 'ArrowLeft')   prevImage();
-      if (e.key === 'ArrowRight')  nextImage();
+      if (e.key === 'Escape')     closeLightbox();
+      if (e.key === 'ArrowLeft')  prevImage();
+      if (e.key === 'ArrowRight') nextImage();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [lightbox, filtered.length]);
+  }, [lightbox, closeLightbox, prevImage, nextImage]);
 
   const heroImg = heroImages[0]?.imageUrl ? resolveImageUrl(heroImages[0].imageUrl) : FALLBACK_HERO;
 
@@ -59,17 +89,17 @@ export default function GalleryPage() {
 
         {/* Category filter - underline tab style */}
         <div className="flex gap-1 mb-14 border-b border-stone-200 overflow-x-auto">
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
-              onClick={() => setActiveCategory(cat)}
+              onClick={() => selectCategory(cat)}
               className={`flex-shrink-0 px-5 py-3 text-xs font-semibold tracking-[0.15em] uppercase transition-all duration-200 border-b-2 -mb-px ${
                 activeCategory === cat
                   ? 'border-pub-gold text-pub-gold'
                   : 'border-transparent text-stone-500 hover:text-pub-gold'
               }`}
             >
-              {cat === 'all' ? 'All Photos' : cat}
+              {cat === 'all' ? 'All Photos' : titleCase(cat)}
             </button>
           ))}
         </div>

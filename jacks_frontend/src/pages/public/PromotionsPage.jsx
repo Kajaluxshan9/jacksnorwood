@@ -85,17 +85,12 @@ export default function PromotionsPage() {
   const [promotions,  setPromotions]  = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [heroImages,  setHeroImages]  = useState([]);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const typeParam = searchParams.get('type');
 
-  const [activeTab, setActiveTab] = useState(
-    typeParam && ['DAILY', 'SPECIAL'].includes(typeParam) ? typeParam : 'DAILY',
-  );
-
-  useEffect(() => {
-    if (typeParam && ['DAILY', 'SPECIAL'].includes(typeParam)) setActiveTab(typeParam);
-    else if (!typeParam) setActiveTab('DAILY');
-  }, [typeParam]);
+  // Derived, not mirrored in state.
+  const activeTab = TABS.some((t) => t.key === typeParam) ? typeParam : 'DAILY';
+  const setActiveTab = (key) => setSearchParams({ type: key }, { replace: true });
 
   useEffect(() => {
     promotionAPI.getActive().then((r) => setPromotions(r.data)).catch(console.error).finally(() => setLoading(false));

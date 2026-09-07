@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { reservationAPI } from '../../services/api';
+import { reservationAPI, apiErrorMessage } from '../../services/api';
+import { formatApiDate, formatApiTime } from '../../utils/date';
 import { HiCheck, HiX, HiClock } from 'react-icons/hi';
 
 const STATUS_COLORS = {
@@ -20,9 +21,14 @@ export default function AdminReservations() {
   const updateStatus = async (id, status) => {
     try {
       await reservationAPI.updateStatus(id, status);
-      toast.success(`Reservation ${status.toLowerCase()}`);
+      // The backend now emails the guest on confirm/cancel, so say so.
+      toast.success(
+        status === 'PENDING'
+          ? 'Reservation moved back to pending'
+          : `Reservation ${status.toLowerCase()} - the guest has been emailed`,
+      );
       load();
-    } catch { toast.error('Failed to update status'); }
+    } catch (error) { toast.error(apiErrorMessage(error, 'Failed to update status')); }
   };
 
   const filtered = filter === 'all' ? reservations : reservations.filter(r => r.status === filter);
@@ -78,8 +84,10 @@ export default function AdminReservations() {
                     <p className="text-white/50 text-xs">{r.phone}</p>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <p className="text-white text-xs">{r.date}</p>
-                    <p className="text-pub-gold text-xs">{r.time?.slice(0,5)}</p>
+                    <p className="text-white text-xs">
+                      {formatApiDate(r.date, { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                    <p className="text-pub-gold text-xs">{formatApiTime(r.time)}</p>
                   </td>
                   <td className="px-4 py-3 text-white/70 text-xs">{r.guests} guests</td>
                   <td className="px-4 py-3">

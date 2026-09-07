@@ -7,11 +7,6 @@ import { Link } from 'react-router-dom';
 import { teamAPI, heroImageAPI, resolveImageUrl } from '../../services/api';
 import { FALLBACK_HERO, FALLBACK_TEAM, FALLBACK_RESTAURANT } from '../../config/constants';
 
-const fadeUp = {
-  hidden:  { opacity: 0, y: 28 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
-};
-
 const pillars = [
   {
     number: '01',

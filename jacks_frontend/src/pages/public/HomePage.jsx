@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SEO from '../../components/seo/SEO';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,7 +7,7 @@ import { menuAPI, promotionAPI, heroImageAPI, resolveImageUrl } from '../../serv
 import MenuItemCard from '../../components/ui/MenuItemCard';
 import SectionHeader from '../../components/ui/SectionHeader';
 import SpecialsPopup from '../../components/ui/SpecialsPopup';
-import { FALLBACK_HERO, FALLBACK_PROMOTION, FALLBACK_GALLERY, RESTAURANT_PHONE, RESTAURANT_ADDRESS, OPENING_HOURS } from '../../config/constants';
+import { FALLBACK_HERO, FALLBACK_PROMOTION, FALLBACK_GALLERY, RESTAURANT_PHONE, RESTAURANT_ADDRESS, OPENING_HOURS, GOOGLE_MAPS_EMBED_URL, HERO_IMAGE_URL } from '../../config/constants';
 
 const fadeUp = {
   hidden:  { opacity: 0, y: 36 },
@@ -21,7 +21,10 @@ export default function HomePage() {
   const [loadingMenu,   setLoadingMenu]   = useState(true);
   const [heroImages,    setHeroImages]    = useState([]);
   const [heroIndex,     setHeroIndex]     = useState(0);
-  const timerRef = useRef(null);
+  // Bumped on every manual interaction to restart the autoplay timer. Previously
+  // the arrows and dots only called clearInterval, so one click stopped the
+  // slideshow permanently for the rest of the visit.
+  const [autoplayNonce, setAutoplayNonce] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -34,19 +37,29 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (heroImages.length <= 1) return;
-    timerRef.current = setInterval(() => {
+    if (heroImages.length <= 1) return undefined;
+    const timer = setInterval(() => {
       setHeroIndex((i) => (i + 1) % heroImages.length);
     }, 9000);
-    return () => clearInterval(timerRef.current);
-  }, [heroImages]);
+    // autoplayNonce is a dependency on purpose: changing it tears this timer
+    // down and starts a fresh one, so the slideshow resumes after a manual jump.
+    return () => clearInterval(timer);
+  }, [heroImages, autoplayNonce]);
 
-  const heroPrev = () => { clearInterval(timerRef.current); setHeroIndex((i) => (i - 1 + heroImages.length) % heroImages.length); };
-  const heroNext = () => { clearInterval(timerRef.current); setHeroIndex((i) => (i + 1) % heroImages.length); };
+  const goToHero = (next) => {
+    setHeroIndex(next);
+    setAutoplayNonce((n) => n + 1);
+  };
 
+  const heroPrev = () => goToHero((heroIndex - 1 + heroImages.length) % heroImages.length);
+  const heroNext = () => goToHero((heroIndex + 1) % heroImages.length);
+
+  // HERO_IMAGE_URL may be an uploaded "/uploads/..." path, which is served by
+  // the backend rather than the frontend origin - so it needs resolving too.
+  // Using it raw produced a guaranteed 404 for the documented usage.
   const heroBg = heroImages.length > 0
-    ? resolveImageUrl(heroImages[heroIndex].imageUrl)
-    : import.meta.env.VITE_HERO_IMAGE_URL || FALLBACK_HERO;
+    ? resolveImageUrl(heroImages[heroIndex].imageUrl, FALLBACK_HERO)
+    : resolveImageUrl(HERO_IMAGE_URL, FALLBACK_HERO);
 
   return (
     <div>
@@ -90,7 +103,7 @@ export default function HomePage() {
             {/* Dot indicators */}
             <div className="absolute bottom-8 right-8 z-20 flex gap-1.5">
               {heroImages.map((_, i) => (
-                <button key={i} onClick={() => { clearInterval(timerRef.current); setHeroIndex(i); }}
+                <button key={i} onClick={() => goToHero(i)}
                   className={`rounded-full transition-all duration-300 ${i === heroIndex ? 'bg-pub-gold w-5 h-1.5' : 'bg-white/30 w-1.5 h-1.5'}`}
                 />
               ))}
@@ -368,7 +381,7 @@ export default function HomePage() {
             <div className="overflow-hidden border border-stone-200 h-80 lg:h-full min-h-80" style={{ borderRadius: '4px' }}>
               <iframe
                 title="Jack's Norwood Location"
-                src="https://maps.google.com/maps?q=4327+Highway+7,+Norwood,+ON+K0L+2V0&t=m&z=15&output=embed"
+                src={GOOGLE_MAPS_EMBED_URL}
                 width="100%"
                 height="100%"
                 style={{ border: 0, minHeight: '320px' }}

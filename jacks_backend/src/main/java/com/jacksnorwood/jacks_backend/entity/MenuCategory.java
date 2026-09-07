@@ -1,6 +1,7 @@
 package com.jacksnorwood.jacks_backend.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import lombok.*;
 import java.util.List;
 
@@ -25,6 +26,11 @@ public class MenuCategory {
 
     private Integer displayOrder;
 
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    // Read-only association: no cascade. Deleting a category removes its items
+    // explicitly in MenuService.deleteCategory, so the behaviour does not depend
+    // on whether this lazy collection happens to have been initialised.
+    // Batched for the paths that do not fetch-join it (see findAllWithItems).
+    @BatchSize(size = 100)
+    @OneToMany(mappedBy = "category", fetch = FetchType.LAZY)
     private List<MenuItem> items;
 }

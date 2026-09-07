@@ -18,7 +18,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -47,6 +49,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
+                // Public: job applicants attach a CV to the careers contact form.
+                // Declared before the admin rule so the more specific path wins.
+                .requestMatchers(HttpMethod.POST, "/api/upload/cv").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/upload").hasRole("ADMIN")
                 // Public read endpoints — active/public data only
                 .requestMatchers(HttpMethod.GET, "/api/menu/categories").permitAll()
@@ -69,6 +74,7 @@ public class SecurityConfig {
                 // /api/hero-images/all is admin-only
                 .requestMatchers(HttpMethod.GET, "/api/hero-images/all").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/hero-images/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/hero-images/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/hero-images/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/settings").permitAll()
                 .requestMatchers(HttpMethod.PUT, "/api/settings").hasRole("ADMIN")
@@ -90,13 +96,27 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/events/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/events/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/gallery/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/gallery/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/gallery/**").hasRole("ADMIN")
+                // Team writes were previously only covered by the catch-all below,
+                // which would silently open up were a non-admin role ever added.
+                .requestMatchers(HttpMethod.POST, "/api/team/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/team/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/team/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/newsletter/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/reservations").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/reservations/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/contact").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/contact/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/contact/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
+            // Without an explicit entry point Spring Security defaults to
+            // Http403ForbiddenEntryPoint, so an expired token returned 403 and the
+            // frontend's 401 interceptor never fired (the admin was left stuck on a
+            // dead session). Answer 401 for "not authenticated" instead.
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

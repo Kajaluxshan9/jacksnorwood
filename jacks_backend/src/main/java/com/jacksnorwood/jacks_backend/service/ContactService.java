@@ -2,17 +2,13 @@ package com.jacksnorwood.jacks_backend.service;
 
 import com.jacksnorwood.jacks_backend.dto.ContactMessageDTO;
 import com.jacksnorwood.jacks_backend.entity.ContactMessage;
+import com.jacksnorwood.jacks_backend.exception.BadRequestException;
+import com.jacksnorwood.jacks_backend.exception.ResourceNotFoundException;
 import com.jacksnorwood.jacks_backend.repository.ContactMessageRepository;
-import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,18 +18,18 @@ import java.util.stream.Collectors;
 public class ContactService {
 
     private final ContactMessageRepository contactMessageRepository;
-    private final JavaMailSender mailSender;
-
-    @Value("${spring.mail.username:}")
-    private String senderEmail;
-
-    @Value("${app.restaurant.email:${spring.mail.username:}}")
-    private String restaurantEmail;
-
-    @Value("${app.upload.dir:uploads}")
-    private String uploadDir;
+    private final ContactMailer contactMailer;
+    private final FileStorageService fileStorage;
 
     public ContactMessageDTO send(ContactMessageDTO dto) {
+        // A cvUrl is only meaningful if it points at a file we actually hold.
+        // Rejecting anything else here stops a crafted path from being stored
+        // and later handed to the mailer.
+        String cvUrl = dto.getCvUrl();
+        if (cvUrl != null && !cvUrl.isBlank() && fileStorage.resolveExisting(cvUrl) == null) {
+            throw new BadRequestException("The attached file could not be found. Please upload it again.");
+        }
+
         // Always persist the message so it appears in the admin panel
         ContactMessage saved = contactMessageRepository.save(
             ContactMessage.builder()
@@ -41,47 +37,17 @@ public class ContactService {
                 .email(dto.getEmail())
                 .phone(dto.getPhone())
                 .subject(dto.getSubject())
-                .cvUrl(dto.getCvUrl())
+                .cvUrl(cvUrl != null && !cvUrl.isBlank() ? cvUrl : null)
                 .message(dto.getMessage())
                 .isRead(false)
                 .build()
         );
 
-        // Attempt email notification (best-effort, never blocks the response)
-        if (restaurantEmail != null && !restaurantEmail.isBlank()) {
-            try {
-                MimeMessage message = mailSender.createMimeMessage();
-                MimeMessageHelper helper = new MimeMessageHelper(message, true);
-                helper.setFrom(senderEmail);
-                helper.setTo(restaurantEmail);
-                helper.setSubject("New Contact Message: " + (dto.getSubject() != null ? dto.getSubject() : "General"));
-                helper.setText(
-                    "You have a new message from the website.\n\n" +
-                    "Name:    " + dto.getName() + "\n" +
-                    "Email:   " + dto.getEmail() + "\n" +
-                    "Phone:   " + (dto.getPhone() != null ? dto.getPhone() : "-") + "\n" +
-                    "Subject: " + (dto.getSubject() != null ? dto.getSubject() : "General") + "\n" +
-                    "\nMessage:\n" + dto.getMessage()
-                );
-
-                if (dto.getCvUrl() != null && !dto.getCvUrl().isBlank()) {
-                    String filename = dto.getCvUrl().replaceFirst("^/uploads/", "");
-                    File cvFile = new File(uploadDir).toPath().toAbsolutePath()
-                            .resolve(filename).toFile();
-                    if (cvFile.exists()) {
-                        helper.addAttachment("CV_" + dto.getName() + getExtension(filename), new FileSystemResource(cvFile));
-                    } else {
-                        log.warn("CV file not found on disk: {}", cvFile.getAbsolutePath());
-                    }
-                }
-
-                mailSender.send(message);
-            } catch (Exception e) {
-                log.warn("Failed to send contact email: {}", e.getMessage());
-            }
-        }
-
-        return toDTO(saved);
+        ContactMessageDTO result = toDTO(saved);
+        // Queued, not inline: a slow or unreachable SMTP server must not make the
+        // visitor's form submission hang or appear to fail.
+        contactMailer.notifyRestaurant(result);
+        return result;
     }
 
     public List<ContactMessageDTO> getAll() {
@@ -91,9 +57,17 @@ public class ContactService {
 
     public ContactMessageDTO markRead(Long id) {
         ContactMessage msg = contactMessageRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Message not found: " + id));
+                .orElseThrow(() -> ResourceNotFoundException.of("Message", id));
         msg.setIsRead(true);
         return toDTO(contactMessageRepository.save(msg));
+    }
+
+    public void delete(Long id) {
+        ContactMessage msg = contactMessageRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Message", id));
+        // The CV was uploaded solely for this message, so it goes with it.
+        fileStorage.deleteQuietly(msg.getCvUrl());
+        contactMessageRepository.delete(msg);
     }
 
     private ContactMessageDTO toDTO(ContactMessage m) {
@@ -108,10 +82,5 @@ public class ContactService {
         dto.setCreatedAt(m.getCreatedAt());
         dto.setIsRead(m.getIsRead());
         return dto;
-    }
-
-    private String getExtension(String filename) {
-        int dot = filename.lastIndexOf('.');
-        return dot >= 0 ? filename.substring(dot) : "";
     }
 }

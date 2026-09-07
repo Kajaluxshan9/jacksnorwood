@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { newsletterAPI } from '../../services/api';
-import { HiMail } from 'react-icons/hi';
+import { newsletterAPI, apiErrorMessage } from '../../services/api';
+import { HiMail, HiTrash } from 'react-icons/hi';
 import { FaPaperPlane } from 'react-icons/fa';
 import ImageUpload from '../../components/ui/ImageUpload';
 
@@ -104,15 +104,31 @@ export default function AdminNewsletter() {
     setSending(true);
     try {
       await newsletterAPI.send(subject, body, imageUrl || null);
-      toast.success(`Newsletter sent to ${subscribers.length} subscribers!`);
+      // The server queues the send and returns immediately - it no longer holds
+      // the request open for the whole blast - so word it as "sending".
+      toast.success(
+        `Sending to ${subscribers.length} subscriber${subscribers.length !== 1 ? 's' : ''}. ` +
+        'Delivery continues in the background.',
+      );
       setSubject('');
       setBody('');
       setImageUrl('');
       setSelectedTopic(null);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send newsletter');
+      toast.error(apiErrorMessage(err, 'Failed to send newsletter'));
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleRemoveSubscriber = async (sub) => {
+    if (!confirm(`Remove ${sub.email} from the mailing list?`)) return;
+    try {
+      await newsletterAPI.deleteSubscriber(sub.id);
+      toast.success('Subscriber removed');
+      load();
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Failed to remove subscriber'));
     }
   };
 
@@ -271,6 +287,9 @@ export default function AdminNewsletter() {
                   <th className="text-left text-white/50 uppercase tracking-wider px-4 py-3 text-xs hidden md:table-cell">
                     Subscribed
                   </th>
+                  <th className="text-right text-white/50 uppercase tracking-wider px-4 py-3 text-xs">
+                    Remove
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -285,6 +304,16 @@ export default function AdminNewsletter() {
                       {s.subscribedAt
                         ? new Date(s.subscribedAt).toLocaleDateString("en-CA")
                         : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSubscriber(s)}
+                        title="Remove from the mailing list"
+                        className="text-red-400 hover:text-red-300 p-1.5 rounded hover:bg-red-500/10 transition-colors"
+                      >
+                        <HiTrash size={15} />
+                      </button>
                     </td>
                   </tr>
                 ))}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { menuAPI, resolveImageUrl } from '../../services/api';
+import { menuAPI, resolveImageUrl, apiErrorMessage } from '../../services/api';
 import { HiPlus, HiPencil, HiTrash, HiX, HiChevronDown, HiChevronRight, HiArrowRight, HiSwitchHorizontal } from 'react-icons/hi';
 import { FaFire, FaLeaf } from 'react-icons/fa';
 import ImageUpload from '../../components/ui/ImageUpload';
@@ -20,6 +20,7 @@ export default function AdminMenu() {
   const [expandedSubs, setExpandedSubs] = useState({});
 
   const [isActive, setIsActive] = useState(true);
+  const [itemImageUrl, setItemImageUrl] = useState('');
 
   // ── Bulk selection & restructure actions ─────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState(() => new Set());
@@ -78,7 +79,7 @@ export default function AdminMenu() {
     register: regCat,
     handleSubmit: submitCat,
     reset: resetCat,
-    formState: { isSubmitting: catSubmitting },
+    formState: { isSubmitting: catSubmitting, errors: catErrors },
   } = useForm();
   const [catImageUrl, setCatImageUrl] = useState('');
 
@@ -108,19 +109,31 @@ export default function AdminMenu() {
       }
       setModalType(null);
       load();
-    } catch {
-      toast.error('Failed to save category');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Failed to save category'));
     }
   };
 
   const handleDeleteCategory = async (id, name) => {
-    if (!confirm(`Delete category "${name}" and all its subcategories/items?`)) return;
+    // Spell out the real cost: this removes the items too, and the counts are
+    // already on screen, so there is no reason to make the admin guess.
+    const itemCount = items.filter((i) => i.categoryId === id).length;
+    const subCount = subcategories.filter((s) => s.categoryId === id).length;
+    const detail = [
+      subCount ? `${subCount} subcategor${subCount === 1 ? 'y' : 'ies'}` : null,
+      itemCount ? `${itemCount} item${itemCount === 1 ? '' : 's'}` : null,
+    ].filter(Boolean).join(' and ');
+
+    const message = detail
+      ? `Delete "${name}"?\n\nThis permanently removes ${detail}. This cannot be undone.`
+      : `Delete the empty category "${name}"?`;
+    if (!confirm(message)) return;
     try {
       await menuAPI.deleteCategory(id);
       toast.success('Category deleted');
       load();
-    } catch {
-      toast.error('Failed to delete');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Failed to delete'));
     }
   };
 
@@ -129,7 +142,7 @@ export default function AdminMenu() {
     register: regSub,
     handleSubmit: submitSub,
     reset: resetSub,
-    formState: { isSubmitting: subSubmitting },
+    formState: { isSubmitting: subSubmitting, errors: subErrors },
   } = useForm();
   const [subImageUrl, setSubImageUrl] = useState('');
 
@@ -164,8 +177,8 @@ export default function AdminMenu() {
       }
       setModalType(null);
       load();
-    } catch {
-      toast.error('Failed to save subcategory');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Failed to save subcategory'));
     }
   };
 
@@ -175,8 +188,8 @@ export default function AdminMenu() {
       await menuAPI.deleteSubcategory(id);
       toast.success('Subcategory deleted');
       load();
-    } catch {
-      toast.error('Failed to delete');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Failed to delete'));
     }
   };
 
@@ -186,7 +199,7 @@ export default function AdminMenu() {
     handleSubmit: submitItem,
     reset: resetItem,
     control,
-    formState: { isSubmitting: itemSubmitting },
+    formState: { isSubmitting: itemSubmitting, errors: itemErrors },
   } = useForm();
 
   const { fields: sizeFields, append: appendSize, remove: removeSize } = useFieldArray({ control, name: 'sizes' });
@@ -198,7 +211,14 @@ export default function AdminMenu() {
   const openAddItem = (catId = null, subId = null) => {
     setEditing(null);
     setModalType('item');
-    resetItem({ isSpicy: false, isVegan: false, sizes: [], categoryId: catId || '', subcategoryId: subId || '' });
+    // price must be seeded here: react-hook-form's reset() overrides the input's
+    // defaultValue, leaving it blank, and a blank price serialised to null and
+    // was rejected by the NOT NULL column with only a generic error to show.
+    resetItem({
+      isSpicy: false, isVegan: false, isPopular: false, price: '0',
+      sizes: [], categoryId: catId || '', subcategoryId: subId || '',
+    });
+    setItemImageUrl('');
     setIsActive(true);
   };
 
@@ -216,19 +236,27 @@ export default function AdminMenu() {
       isPopular: item.isPopular,
       sizes: item.sizes || [],
     });
+    setItemImageUrl(item.imageUrl || '');
     setIsActive(item.isActive ?? true);
   };
 
   const onSubmitItem = async (data) => {
     try {
-      const sizes = (data.sizes || []).filter((s) => s.name && s.price);
+      // Keep a size priced at 0 — `s.price` alone treated "0" as falsy and
+      // silently dropped free/included variants.
+      const sizes = (data.sizes || []).filter(
+        (s) => s.name?.trim() && s.price !== '' && s.price !== undefined && s.price !== null,
+      );
+      const parsedPrice = parseFloat(data.price);
       const payload = {
         ...data,
         isActive,
-        price: parseFloat(data.price),
-        categoryId: parseInt(data.categoryId),
-        subcategoryId: data.subcategoryId ? parseInt(data.subcategoryId) : null,
-        sizes: sizes.map((s) => ({ name: s.name, price: parseFloat(s.price) })),
+        imageUrl: itemImageUrl,
+        // A blank price means "no base price" (items priced only by size).
+        price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
+        categoryId: parseInt(data.categoryId, 10),
+        subcategoryId: data.subcategoryId ? parseInt(data.subcategoryId, 10) : null,
+        sizes: sizes.map((s) => ({ name: s.name.trim(), price: parseFloat(s.price) || 0 })),
       };
       if (editing) {
         await menuAPI.update(editing.id, payload);
@@ -239,8 +267,8 @@ export default function AdminMenu() {
       }
       setModalType(null);
       load();
-    } catch {
-      toast.error('Failed to save item');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Failed to save item'));
     }
   };
 
@@ -250,8 +278,8 @@ export default function AdminMenu() {
       await menuAPI.delete(id);
       toast.success('Item deleted');
       load();
-    } catch {
-      toast.error('Failed to delete');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Failed to delete'));
     }
   };
 
@@ -297,29 +325,23 @@ export default function AdminMenu() {
     if (!convertTarget) { toast.error('Choose the menu to nest it under'); return; }
     if (String(convertTarget) === String(convertCat.id)) { toast.error('Pick a different target menu'); return; }
     const src = convertCat;
-    const targetId = parseInt(convertTarget);
-    const name = convertName.trim() || src.name;
+    const srcItemCount = items.filter((i) => i.categoryId === src.id).length;
     setBusy(true);
     try {
-      // 1. Create the new subcategory under the target menu
-      const { data: newSub } = await menuAPI.createSubcategory({
-        name,
-        categoryId: targetId,
-        displayOrder: src.displayOrder ?? null,
+      // One transactional request. This used to be a create, then one update per
+      // item, then a delete — so a failure part-way through left the menu half
+      // migrated with no clean way to retry.
+      await menuAPI.convertCategory({
+        sourceCategoryId: src.id,
+        targetCategoryId: parseInt(convertTarget, 10),
+        name: convertName.trim() || src.name,
       });
-      // 2. Move every item currently in this category into the new subcategory
-      const srcItems = items.filter((i) => i.categoryId === src.id);
-      await Promise.all(srcItems.map((i) =>
-        menuAPI.update(i.id, { categoryId: targetId, subcategoryId: newSub.id })
-      ));
-      // 3. Delete the now-empty source category (also clears its old subcategories)
-      await menuAPI.deleteCategory(src.id);
-      toast.success(`"${src.name}" moved under the selected menu (${srcItems.length} items)`);
+      toast.success(`"${src.name}" moved under the selected menu (${srcItemCount} items)`);
       setConvertCat(null);
       clearSelection();
       load();
-    } catch {
-      toast.error('Convert failed — please retry');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Convert failed — please retry'));
     } finally {
       setBusy(false);
     }
@@ -537,8 +559,8 @@ export default function AdminMenu() {
       {modalType === 'category' && (
         <Modal title={editing ? 'Edit Category' : 'Add Category'} onClose={() => setModalType(null)}>
           <form onSubmit={submitCat(onSubmitCategory)} className="space-y-4">
-            <Field label="Name *">
-              <input {...regCat('name', { required: true })} className={inputCls} />
+            <Field label="Name *" error={catErrors.name?.message}>
+              <input {...regCat('name', { required: 'Name is required' })} className={inputCls} />
             </Field>
             <Field label="Description">
               <textarea {...regCat('description')} rows={3} className={inputCls + ' resize-none'} />
@@ -556,11 +578,11 @@ export default function AdminMenu() {
       {modalType === 'subcategory' && (
         <Modal title={editing ? 'Edit Subcategory' : 'Add Subcategory'} onClose={() => setModalType(null)}>
           <form onSubmit={submitSub(onSubmitSubcategory)} className="space-y-4">
-            <Field label="Name *">
-              <input {...regSub('name', { required: true })} className={inputCls} />
+            <Field label="Name *" error={subErrors.name?.message}>
+              <input {...regSub('name', { required: 'Name is required' })} className={inputCls} />
             </Field>
-            <Field label="Category *">
-              <select {...regSub('categoryId', { required: true })} className={inputCls}>
+            <Field label="Category *" error={subErrors.categoryId?.message}>
+              <select {...regSub('categoryId', { required: 'Choose a category' })} className={inputCls}>
                 <option value="">Select category...</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -600,16 +622,16 @@ export default function AdminMenu() {
             </div>
 
             <form onSubmit={submitItem(onSubmitItem)} className="space-y-4">
-              <Field label="Name *">
-                <input {...regItem('name', { required: true })} className={inputCls} />
+              <Field label="Name *" error={itemErrors.name?.message}>
+                <input {...regItem('name', { required: 'Name is required' })} className={inputCls} />
               </Field>
               <Field label="Description">
                 <textarea {...regItem('description')} rows={3} className={inputCls + ' resize-none'} />
               </Field>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Category *">
-                  <select {...regItem('categoryId', { required: true })} className={inputCls}>
+                <Field label="Category *" error={itemErrors.categoryId?.message}>
+                  <select {...regItem('categoryId', { required: 'Choose a category' })} className={inputCls}>
                     <option value="">Select...</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
@@ -626,9 +648,24 @@ export default function AdminMenu() {
                 </Field>
               </div>
 
-              <Field label="Base Price ($) — leave 0 if using sizes">
-                <input {...regItem('price')} type="number" step="0.01" defaultValue="0" className={inputCls} />
+              <Field label="Base Price ($) — leave 0 if using sizes" error={itemErrors.price?.message}>
+                <input
+                  {...regItem('price', {
+                    min: { value: 0, message: 'Price cannot be negative' },
+                  })}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className={inputCls}
+                />
               </Field>
+
+              <ImageUpload
+                value={itemImageUrl}
+                onChange={setItemImageUrl}
+                label="Dish Photo (optional)"
+                inputCls={inputCls}
+              />
 
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -798,11 +835,12 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, children, error }) {
   return (
     <div>
       <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">{label}</label>
       {children}
+      {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
     </div>
   );
 }

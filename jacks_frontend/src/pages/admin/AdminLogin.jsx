@@ -2,8 +2,8 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { HiHome } from 'react-icons/hi';
-import { useAuth } from '../../context/AuthContext';
-import { authAPI } from '../../services/api';
+import { useAuth } from '../../context/useAuth';
+import { authAPI, apiErrorMessage } from '../../services/api';
 import logoImg from '../../assets/images/JN L 2.png';
 
 export default function AdminLogin() {
@@ -17,8 +17,17 @@ export default function AdminLogin() {
       login(res.data);
       toast.success(`Welcome back, ${res.data.username}!`);
       navigate('/admin');
-    } catch {
-      toast.error('Invalid username or password');
+    } catch (error) {
+      // 401/403 really is a bad credential; anything else (network, 5xx) would
+      // be misleading to report as a wrong password.
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        toast.error('Invalid username or password');
+      } else if (!error?.response) {
+        toast.error('Could not reach the server. Please check your connection.');
+      } else {
+        toast.error(apiErrorMessage(error, 'Sign in failed. Please try again.'));
+      }
     }
   };
 

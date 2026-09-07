@@ -176,8 +176,14 @@ Links appear in the website footer. Icons are only shown for platforms that have
 | `VITE_RESTAURANT_PHONE` | ✅ Yes | — | Contact phone number shown in the header, footer, and contact page. |
 | `VITE_RESTAURANT_EMAIL` | ✅ Yes | — | Contact email address shown on the contact page. |
 | `VITE_RESTAURANT_ADDRESS` | ✅ Yes | — | Physical street address shown in the footer and contact page. |
-| `VITE_GOOGLE_MAPS_EMBED_URL` | Optional | — | Google Maps embed `src` URL. If left empty, a plain "View on Google Maps" link is shown instead. See the [Adding a Google Map](#adding-a-google-map) section for how to get this URL. |
+| `VITE_GOOGLE_MAPS_EMBED_URL` | Optional | Built from the address | Google Maps embed `src` URL. If left empty, a map is generated from `VITE_RESTAURANT_ADDRESS` instead. See the [Adding a Google Map](#adding-a-google-map) section for how to get this URL. |
 | `VITE_HERO_IMAGE_URL` | Optional | Bundled image | Fallback hero background image. Leave empty to use the default bundled image. Set to a `/uploads/...` path to use a custom image. Note: hero images uploaded via the Admin → Hero Images page take priority over this value. |
+| `VITE_ONLINE_ORDER_URL` | Optional | Built-in provider link | Destination of the "Order Online" links in the navbar and footer. |
+| `VITE_HOURS_MON_THU` | Optional | `08:00 AM - 08:00 PM` | Opening hours for Monday–Thursday. Shown in the footer, contact page, reservation sidebar, home page, and the LocalBusiness structured data. |
+| `VITE_HOURS_FRI_SAT` | Optional | `08:00 AM - 10:00 PM` | Opening hours for Friday–Saturday. |
+| `VITE_HOURS_SUN` | Optional | `08:00 AM - 08:00 PM` | Opening hours for Sunday. Set any hours variable to an empty value to hide that row entirely (e.g. if you only need two day-bands). |
+
+> **Note on the hours variables:** these names must match `src/config/constants.js` exactly. Vite substitutes `import.meta.env.VITE_*` by matching the literal text at build time, so a typo does not raise an error — the value is silently replaced with `undefined` and the built-in default is used instead.
 
 ### Backend (`jacks_backend/.env`)
 
@@ -221,6 +227,33 @@ Links appear in the website footer. Icons are only shown for platforms that have
 | `SPRING_PROFILES_ACTIVE` | Optional | `dev` | Controls which Spring profile is active. Use `dev` locally (auto-seeds the database with sample data on first boot). Use `prod` in production (skips the DataInitializer so real data is never overwritten on restart). |
 
 ---
+
+## Running the Tests
+
+Both suites are self-contained — no database, no mail server, no running app.
+
+```bash
+# Backend (JUnit 5 + Mockito + an in-memory H2 database)
+cd jacks_backend
+./mvnw test
+
+# Frontend (Vitest)
+cd jacks_frontend
+npm test          # single run
+npm run test:watch
+```
+
+The backend suite covers the upload boundary (type checks and directory
+containment), the partial-update semantics of the DTOs, the menu delete/convert
+operations against a real schema, and the public web layer (who can reach what,
+and which payloads are rejected). The frontend suite covers the date helpers,
+the opening-hours configuration, and the API session handling.
+
+**A note on the database.** Tests run against H2 in PostgreSQL compatibility
+mode, configured in `src/test/resources/application.properties`. That is close
+to production but not identical — H2 accepts some SQL that PostgreSQL rejects.
+If you change a `@Query`, run it against a real PostgreSQL instance before
+trusting a green suite.
 
 ## Building for Production
 

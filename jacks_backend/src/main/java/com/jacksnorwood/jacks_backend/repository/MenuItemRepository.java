@@ -9,4 +9,6 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
     List<MenuItem> findByIsPopularTrueAndIsActiveTrue();
     List<MenuItem> findByIsActiveTrue();
     List<MenuItem> findByCategoryIdAndIsActiveTrue(Long categoryId);
+    List<MenuItem> findBySubcategoryId(Long subcategoryId);
+    List<MenuItem> findBySubcategoryIdIn(java.util.Collection<Long> subcategoryIds);
 }

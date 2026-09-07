@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { promotionAPI, resolveImageUrl } from '../../services/api';
+import { promotionAPI, resolveImageUrl, apiErrorMessage } from '../../services/api';
 import { HiPencil, HiTrash, HiX } from 'react-icons/hi';
 import { FaSun, FaStar } from 'react-icons/fa';
 import ImageUpload from '../../components/ui/ImageUpload';
@@ -71,6 +71,23 @@ export default function AdminPromotions() {
   };
 
   const onSubmit = async (data) => {
+    // The form marks "Day of Week" required but nothing enforced it, so a daily
+    // special could be saved with no day. Those landed in "Unassigned" here and,
+    // because the public popup treats a missing day as "show it", surfaced on
+    // the home page every day of the week.
+    if (promoType === "DAILY" && !dayOfWeek) {
+      toast.error("Please choose which day this special runs on");
+      return;
+    }
+    if (
+      promoType === "SPECIAL" &&
+      data.startDateTime &&
+      data.endDateTime &&
+      data.endDateTime < data.startDateTime
+    ) {
+      toast.error("The end date and time must be after the start");
+      return;
+    }
     try {
       const payload = {
         ...data,
@@ -90,13 +107,17 @@ export default function AdminPromotions() {
         toast.success("Promotion updated!");
       } else {
         await promotionAPI.create(payload);
-        toast.success("Promotion created!");
+        toast.success(
+          active
+            ? "Promotion created! Subscribers are being notified."
+            : "Promotion created (inactive — no announcement sent).",
+        );
       }
       setShowModal(false);
       reset();
       load();
-    } catch {
-      toast.error("Failed to save promotion");
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Failed to save promotion"));
     }
   };
 
@@ -106,8 +127,8 @@ export default function AdminPromotions() {
       await promotionAPI.delete(id);
       toast.success("Deleted");
       load();
-    } catch {
-      toast.error("Failed to delete");
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Failed to delete"));
     }
   };
 
@@ -329,9 +350,13 @@ export default function AdminPromotions() {
                       </button>
                     ))}
                   </div>
-                  {dayOfWeek && (
+                  {dayOfWeek ? (
                     <p className="text-pub-gold text-xs mt-2">
                       Selected: {dayOfWeek}
+                    </p>
+                  ) : (
+                    <p className="text-red-400 text-xs mt-2">
+                      Choose a day — daily specials need one.
                     </p>
                   )}
                 </div>

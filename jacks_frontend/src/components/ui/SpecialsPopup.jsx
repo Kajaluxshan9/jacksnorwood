@@ -13,7 +13,11 @@ export default function SpecialsPopup() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (sessionStorage.getItem("specials_popup_shown")) return;
+    try {
+      if (sessionStorage.getItem("specials_popup_shown")) return;
+    } catch {
+      /* storage unavailable - fall through and show the popup */
+    }
 
     promotionAPI
       .getActive()
@@ -29,7 +33,16 @@ export default function SpecialsPopup() {
         );
         if (daily.length > 0) {
           setDailySpecials(daily);
-          setTimeout(() => setVisible(true), 800);
+          setTimeout(() => {
+            setVisible(true);
+            // Mark as shown as soon as it appears, not only when the user
+            // presses Close - otherwise navigating away re-triggered it.
+            try {
+              sessionStorage.setItem("specials_popup_shown", "1");
+            } catch {
+              /* private mode / storage disabled - showing it again is harmless */
+            }
+          }, 800);
         }
       })
       .catch(() => {});
@@ -37,7 +50,6 @@ export default function SpecialsPopup() {
 
   const close = () => {
     setVisible(false);
-    sessionStorage.setItem("specials_popup_shown", "1");
   };
 
   const goToSpecials = () => {

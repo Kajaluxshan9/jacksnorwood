@@ -1,47 +1,47 @@
 package com.jacksnorwood.jacks_backend.controller;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.jacksnorwood.jacks_backend.service.FileStorageService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.*;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/upload")
+@RequiredArgsConstructor
+@Slf4j
 public class FileUploadController {
 
-    @Value("${app.upload.dir:uploads}")
-    private String uploadDir;
+    private final FileStorageService fileStorage;
 
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
-            ".jpg", ".jpeg", ".png", ".gif", ".webp",
-            ".pdf", ".doc", ".docx"
-    );
-
+    /** Admin-only: images used across the site (menu, gallery, hero, promotions, team). */
     @PostMapping
     public ResponseEntity<Map<String, String>> upload(@RequestParam("file") MultipartFile file) {
         try {
-            String original = file.getOriginalFilename();
-            String ext = (original != null && original.contains("."))
-                    ? original.substring(original.lastIndexOf('.')).toLowerCase() : "";
-
-            if (!ALLOWED_EXTENSIONS.contains(ext)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "File type not allowed"));
-            }
-
-            String filename = UUID.randomUUID() + ext;
-
-            Path dir = Paths.get(uploadDir).toAbsolutePath();
-            Files.createDirectories(dir);
-            Files.copy(file.getInputStream(), dir.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
-
-            return ResponseEntity.ok(Map.of("url", "/uploads/" + filename));
+            return ResponseEntity.ok(Map.of("url", fileStorage.storeImage(file)));
         } catch (IOException e) {
+            log.error("Image upload failed", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", "Upload failed"));
+        }
+    }
+
+    /**
+     * Public: CV/resume attachments for the careers contact form.
+     *
+     * Separate from the admin image endpoint so job applicants — who are never
+     * authenticated — can attach a document without opening up general image
+     * uploads. Restricted to PDF/DOC/DOCX by FileStorageService.
+     */
+    @PostMapping("/cv")
+    public ResponseEntity<Map<String, String>> uploadCv(@RequestParam("file") MultipartFile file) {
+        try {
+            return ResponseEntity.ok(Map.of("url", fileStorage.storeDocument(file)));
+        } catch (IOException e) {
+            log.error("CV upload failed", e);
             return ResponseEntity.internalServerError().body(Map.of("error", "Upload failed"));
         }
     }

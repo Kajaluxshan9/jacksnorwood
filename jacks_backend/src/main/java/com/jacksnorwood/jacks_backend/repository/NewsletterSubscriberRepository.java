@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface NewsletterSubscriberRepository extends JpaRepository<NewsletterSubscriber, Long> {
-    Optional<NewsletterSubscriber> findByEmail(String email);
-    boolean existsByEmail(String email);
+    // Case-insensitive lookups: addresses are stored normalised to lower case,
+    // but these keep older mixed-case rows reachable too.
+    Optional<NewsletterSubscriber> findByEmailIgnoreCase(String email);
 }

@@ -1,7 +1,7 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { setLogoutHandler } from '../services/api';
-
-const AuthContext = createContext(null);
+import { AuthContext } from './auth-context';
+import { LS_TOKEN_KEY, LS_USER_KEY } from '../config/constants';
 
 /** Decode a JWT payload without a library. Returns null if malformed. */
 function decodeJwt(token) {
@@ -30,8 +30,8 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem('jn_token');
-    localStorage.removeItem('jn_user');
+    localStorage.removeItem(LS_TOKEN_KEY);
+    localStorage.removeItem(LS_USER_KEY);
   }, []);
 
   // Register logout with the axios layer so 401s can trigger a proper state reset
@@ -41,16 +41,19 @@ export const AuthProvider = ({ children }) => {
 
   // On mount: restore session only if the stored token is still valid
   useEffect(() => {
-    const storedToken = localStorage.getItem('jn_token');
-    const storedUser  = localStorage.getItem('jn_user');
+    const storedToken = localStorage.getItem(LS_TOKEN_KEY);
+    const storedUser  = localStorage.getItem(LS_USER_KEY);
 
     if (storedToken && storedUser && isTokenValid(storedToken)) {
+      // Hydrating from localStorage, an external store that cannot be read
+      // during render.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
     } else if (storedToken || storedUser) {
       // Stale / expired — clear immediately
-      localStorage.removeItem('jn_token');
-      localStorage.removeItem('jn_user');
+      localStorage.removeItem(LS_TOKEN_KEY);
+      localStorage.removeItem(LS_USER_KEY);
     }
     setLoading(false);
   }, []);
@@ -63,6 +66,9 @@ export const AuthProvider = ({ children }) => {
     if (!payload?.exp) return;
 
     const msUntilExpiry = payload.exp * 1000 - Date.now();
+    // Token was already expired by the time this ran - drop the session now
+    // rather than waiting for a request to fail.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (msUntilExpiry <= 0) { logout(); return; }
 
     // Fire exactly when the token expires (capped at ~24h to avoid overflow)
@@ -75,8 +81,8 @@ export const AuthProvider = ({ children }) => {
     const newUser  = { username: authData.username, role: authData.role };
     setToken(newToken);
     setUser(newUser);
-    localStorage.setItem('jn_token', newToken);
-    localStorage.setItem('jn_user', JSON.stringify(newUser));
+    localStorage.setItem(LS_TOKEN_KEY, newToken);
+    localStorage.setItem(LS_USER_KEY, JSON.stringify(newUser));
   };
 
   const isAdmin = () => user?.role === 'ADMIN';
@@ -88,8 +94,3 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
-};

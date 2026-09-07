@@ -56,6 +56,32 @@ const ROUTE_META = [
   },
 ]
 
+/**
+ * Writes sitemap.xml from ROUTE_META so the URL list can never drift from the
+ * routes we actually pre-render, and <lastmod> reflects the build rather than a
+ * date somebody typed once.
+ */
+function generateSitemap(distDir) {
+  const lastmod = new Date().toISOString().split('T')[0]
+  const priority = { '/': '1.0', '/menu': '0.9', '/reservation': '0.9' }
+  const changefreq = { '/': 'weekly', '/menu': 'weekly', '/promotions': 'weekly', '/events': 'weekly' }
+
+  const urls = ROUTE_META.map(({ path: routePath }) => [
+    '  <url>',
+    `    <loc>${SITE_URL}${routePath === '/' ? '/' : routePath}</loc>`,
+    `    <lastmod>${lastmod}</lastmod>`,
+    `    <changefreq>${changefreq[routePath] || 'monthly'}</changefreq>`,
+    `    <priority>${priority[routePath] || '0.7'}</priority>`,
+    '  </url>',
+  ].join('\n')).join('\n\n')
+
+  fs.writeFileSync(
+    path.join(distDir, 'sitemap.xml'),
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n\n${urls}\n\n</urlset>\n`,
+  )
+  console.log(`  [seo] dist/sitemap.xml (${ROUTE_META.length} urls, lastmod ${lastmod})`)
+}
+
 function generateStaticRoutes() {
   return {
     name: 'generate-static-routes',
@@ -109,6 +135,8 @@ function generateStaticRoutes() {
         }
       })
 
+      generateSitemap(distDir)
+
       console.log(`\n✓ SEO: generated static HTML for ${ROUTE_META.length} routes`)
     },
   }
@@ -119,4 +147,10 @@ export default defineConfig({
     react(),
     generateStaticRoutes(),
   ],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    include: ['src/**/*.test.{js,jsx}'],
+    restoreMocks: true,
+  },
 })

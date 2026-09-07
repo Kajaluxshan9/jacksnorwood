@@ -2,13 +2,13 @@ package com.jacksnorwood.jacks_backend.controller;
 
 import com.jacksnorwood.jacks_backend.dto.ReservationDTO;
 import com.jacksnorwood.jacks_backend.service.ReservationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Collections;
 
 @RestController
 @RequestMapping("/api/reservations")
@@ -17,8 +17,9 @@ public class ReservationController {
 
     private final ReservationService reservationService;
 
+    /** Public endpoint — @Valid rejects incomplete bookings with a 400 and a readable message. */
     @PostMapping
-    public ResponseEntity<ReservationDTO> create(@RequestBody ReservationDTO dto) {
+    public ResponseEntity<ReservationDTO> create(@Valid @RequestBody ReservationDTO dto) {
         return ResponseEntity.ok(reservationService.create(dto));
     }
 
@@ -27,13 +28,14 @@ public class ReservationController {
         return ResponseEntity.ok(reservationService.getAll());
     }
 
+    /**
+     * Invalid status values raise IllegalArgumentException, which
+     * GlobalExceptionHandler turns into a 400 — the local try/catch that used to
+     * do this is no longer needed.
+     */
     @PutMapping("/{id}/status")
-    public ResponseEntity<?> updateStatus(@PathVariable Long id,
-                                          @RequestBody Map<String, String> body) {
-        try {
-            return ResponseEntity.ok(reservationService.updateStatus(id, body.get("status")));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Collections.singletonMap("error", e.getMessage()));
-        }
+    public ResponseEntity<ReservationDTO> updateStatus(@PathVariable Long id,
+                                                       @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(reservationService.updateStatus(id, body.get("status")));
     }
 }

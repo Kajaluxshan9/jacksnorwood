@@ -4,7 +4,8 @@ import SEO from '../../components/seo/SEO';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { FaCalendarCheck, FaUsers, FaClock, FaInfoCircle } from 'react-icons/fa';
-import { reservationAPI, heroImageAPI, resolveImageUrl } from '../../services/api';
+import { reservationAPI, heroImageAPI, resolveImageUrl, apiErrorMessage } from '../../services/api';
+import { todayLocalISO } from '../../utils/date';
 import PageHero from '../../components/ui/PageHero';
 import { FALLBACK_HERO, RESTAURANT_PHONE, OPENING_HOURS } from '../../config/constants';
 
@@ -25,23 +26,41 @@ export default function ReservationPage() {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting, isSubmitSuccessful },
+    formState: { errors, isSubmitting },
   } = useForm();
+
+  // Tracked explicitly rather than via react-hook-form's `isSubmitSuccessful`.
+  // That flag only reports whether the submit handler *threw*; because the
+  // handler catches its own errors it was set to true even when the booking had
+  // failed, so guests saw "Booking Received!" for a reservation that was never
+  // created.
+  const [submitted, setSubmitted] = useState(false);
 
   const onSubmit = async (data) => {
     try {
-      await reservationAPI.create({ ...data, guests: parseInt(data.guests) });
+      await reservationAPI.create({ ...data, guests: parseInt(data.guests, 10) });
       toast.success('Reservation submitted! We will confirm shortly.');
       reset();
-    } catch {
-      toast.error('Failed to submit. Please try again or call us directly.');
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitted(false);
+      toast.error(
+        apiErrorMessage(error, 'Failed to submit. Please try again or call us directly.'),
+      );
     }
+  };
+
+  const startNewBooking = () => {
+    reset();
+    setSubmitted(false);
   };
 
   const inputCls   = 'w-full bg-white border border-stone-200 text-pub-text placeholder-stone-400 px-4 py-3.5 focus:outline-none focus:border-pub-gold transition-colors duration-200 text-sm';
   const labelCls   = 'text-stone-400 text-xs tracking-[0.18em] uppercase mb-1.5 block font-medium';
   const errorCls   = 'text-red-500 text-xs mt-1';
-  const today      = new Date().toISOString().split('T')[0];
+  // Local calendar date. toISOString() converts to UTC first, which in Ontario
+  // rolls over to tomorrow during the evening and blocked same-day bookings.
+  const today      = todayLocalISO();
   const heroImg    = heroImages[0]?.imageUrl ? resolveImageUrl(heroImages[0].imageUrl) : FALLBACK_HERO;
 
   return (
@@ -77,7 +96,7 @@ export default function ReservationPage() {
                 </h2>
               </div>
 
-              {isSubmitSuccessful ? (
+              {submitted ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -92,7 +111,7 @@ export default function ReservationPage() {
                   <p className="text-stone-400 mb-8 max-w-sm mx-auto leading-relaxed">
                     We'll confirm your reservation by email shortly. Looking forward to seeing you!
                   </p>
-                  <button onClick={() => reset()} className="btn-outline">
+                  <button onClick={startNewBooking} className="btn-outline">
                     Make Another Booking
                   </button>
                 </motion.div>

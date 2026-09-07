@@ -77,11 +77,16 @@ export default function MenuPage() {
 
   // ── 1. Load all categories once ───────────────────────────────────────────
   useEffect(() => {
-    setStatus('init');
+    // No setStatus('init') here - this runs once on mount and 'init' is
+    // already the initial value.
     menuAPI.getCategories()
       .then(r => {
         setCategories(r.data);
         setCatError(false);
+        // With no categories at all, the effect below never runs, so settle the
+        // status here. Without this the page sat on a loading spinner forever
+        // whenever the menu was empty.
+        if (!r.data || r.data.length === 0) setStatus('ready');
       })
       .catch(() => {
         setCatError(true);
@@ -107,17 +112,26 @@ export default function MenuPage() {
   }, [activeCategory, normalizedCategorySlug, setSearchParams]);
 
   // ── 4. Load items + subcategories for the active category ────────────────
+  // Keyed on the id alone: the category object is rebuilt on every categories
+  // fetch, so depending on it would refetch needlessly.
+  const activeCategoryId = activeCategory?.id ?? null;
+
   useEffect(() => {
-    if (!activeCategory) return;
+    if (!activeCategoryId) return;
     const version = ++fetchVersion.current;
+    // Clearing the previous category's data before fetching the next one is the
+    // point of this effect, so the synchronous setState is intended here. The
+    // alternative the lint rule suggests (remounting via a key) would throw away
+    // the scroll position and the observer wiring along with it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStatus('loading');
     setItems([]);
     setSubcategories([]);
     setActiveSection(null);
 
     Promise.all([
-      menuAPI.getByCategory(activeCategory.id),
-      menuAPI.getSubcategoriesByCategory(activeCategory.id),
+      menuAPI.getByCategory(activeCategoryId),
+      menuAPI.getSubcategoriesByCategory(activeCategoryId),
     ])
       .then(([itemsRes, subcatsRes]) => {
         if (version !== fetchVersion.current) return; // stale response - discard
@@ -129,7 +143,7 @@ export default function MenuPage() {
         if (version !== fetchVersion.current) return;
         setStatus('error');
       });
-  }, [activeCategory?.id]);
+  }, [activeCategoryId]);
 
   // ── 5. Build content sections ─────────────────────────────────────────────
   const sections = useMemo(() => {
@@ -145,6 +159,8 @@ export default function MenuPage() {
       result.push({
         id: 'sc-none',
         name: activeCategory?.name || 'Items',
+        // Falls back to the first item that has its own picture. This only
+        // started working once menu items actually gained an imageUrl field.
         imageUrl: noSub.find(i => i.imageUrl)?.imageUrl || null,
         items: noSub,
       });
@@ -152,10 +168,12 @@ export default function MenuPage() {
     return result;
   }, [items, subcategories, activeCategory]);
 
-  // ── 6. Set initial active section ─────────────────────────────────────────
-  useEffect(() => {
-    if (sections.length > 0) setActiveSection(sections[0].id);
-  }, [sections]);
+  // ── 6. Highlighted section ────────────────────────────────────────────────
+  // Derived rather than seeded from an effect: fall back to the first section
+  // until the observer (or a click) selects one. This also keeps the highlight
+  // valid when switching category changes the section list underneath it.
+  const activeSectionId =
+    sections.some((s) => s.id === activeSection) ? activeSection : sections[0]?.id ?? null;
 
   // 7. IntersectionObserver - highlight active sidebar item
   useEffect(() => {
@@ -186,7 +204,7 @@ export default function MenuPage() {
 
   const sideBtnCls = (id) =>
     `w-full flex items-center gap-3 p-3 text-left transition-all duration-200 ${
-      activeSection === id
+      activeSectionId === id
         ? 'bg-pub-gold text-white'
         : 'bg-white text-stone-600 hover:bg-stone-50 border border-stone-200 hover:border-pub-gold/30'
     }`;
@@ -214,7 +232,7 @@ export default function MenuPage() {
                 key={sec.id}
                 onClick={() => scrollTo(sec.id)}
                 className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold border transition-all ${
-                  activeSection === sec.id
+                  activeSectionId === sec.id
                     ? 'bg-pub-gold text-white border-pub-gold'
                     : 'bg-white text-stone-600 border-stone-200'
                 }`}
@@ -271,6 +289,11 @@ export default function MenuPage() {
           <div className="text-center py-24">
             <p className="text-xl font-display text-stone-400 mb-2">Could not load items</p>
             <p className="text-stone-400 text-sm">Please try again or contact us.</p>
+          </div>
+        ) : categories.length === 0 ? (
+          <div className="text-center text-stone-400 py-24">
+            <p className="text-xl font-display mb-2">Our menu is being updated</p>
+            <p className="text-sm">Please check back shortly or give us a call.</p>
           </div>
         ) : sections.length === 0 ? (
           <div className="text-center text-stone-400 py-24">

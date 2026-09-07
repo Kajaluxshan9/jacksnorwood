@@ -4,9 +4,9 @@ import SEO from '../../components/seo/SEO';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { FaMapMarkerAlt, FaPhone, FaEnvelope, FaClock, FaUpload, FaCheckCircle } from 'react-icons/fa';
-import { contactAPI, uploadAPI, heroImageAPI, resolveImageUrl } from '../../services/api';
+import { contactAPI, uploadAPI, heroImageAPI, resolveImageUrl, apiErrorMessage } from '../../services/api';
 import PageHero from '../../components/ui/PageHero';
-import { FALLBACK_HERO, RESTAURANT_ADDRESS, RESTAURANT_PHONE, RESTAURANT_EMAIL, OPENING_HOURS } from '../../config/constants';
+import { FALLBACK_HERO, RESTAURANT_ADDRESS, RESTAURANT_PHONE, RESTAURANT_EMAIL, OPENING_HOURS, GOOGLE_MAPS_EMBED_URL } from '../../config/constants';
 
 const SUBJECTS = ['General', 'Feedback', 'Career'];
 
@@ -31,11 +31,15 @@ export default function ContactPage() {
     setCvFile(file);
     setCvUploading(true);
     try {
-      const res = await uploadAPI.upload(file);
+      // uploadCv (not upload): the general image endpoint is admin-only, so
+      // every applicant's upload used to be rejected outright.
+      const res = await uploadAPI.uploadCv(file);
       setCvUrl(res.data.url);
-    } catch {
-      toast.error('CV upload failed. Please try again.');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'CV upload failed. Please try again.'));
       setCvFile(null);
+      setCvUrl('');
+      if (fileRef.current) fileRef.current.value = '';
     } finally {
       setCvUploading(false);
     }
@@ -48,8 +52,9 @@ export default function ContactPage() {
       reset();
       setCvFile(null);
       setCvUrl('');
-    } catch {
-      toast.error('Failed to send message. Please try again.');
+      if (fileRef.current) fileRef.current.value = '';
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Failed to send message. Please try again.'));
     }
   };
 
@@ -229,7 +234,7 @@ export default function ContactPage() {
             <div className="overflow-hidden border border-stone-200 h-56" style={{ borderRadius: '4px' }}>
               <iframe
                 title="Jack's Norwood Location"
-                src="https://maps.google.com/maps?q=4327+Highway+7,+Norwood,+ON+K0L+2V0&t=m&z=15&output=embed"
+                src={GOOGLE_MAPS_EMBED_URL}
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}

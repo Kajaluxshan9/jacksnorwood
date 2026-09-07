@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { galleryAPI, uploadAPI, resolveImageUrl } from '../../services/api';
-import { HiPlus, HiTrash, HiX } from 'react-icons/hi';
+import { galleryAPI, uploadAPI, resolveImageUrl, apiErrorMessage } from '../../services/api';
+import { HiPlus, HiTrash, HiX, HiPencil } from 'react-icons/hi';
 import { FaUpload } from 'react-icons/fa';
 import { FALLBACK_GALLERY } from "../../config/constants";
 
@@ -18,6 +18,13 @@ export default function AdminGallery() {
   const [previews, setPreviews] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [caption, setCaption] = useState("");
+
+  // Editing an existing image (caption / category / order). Previously an image
+  // could only be uploaded or deleted - there was no way to correct a typo in a
+  // caption or move a photo into a different category.
+  const [editing, setEditing] = useState(null);
+  const [editForm, setEditForm] = useState({ category: "", caption: "", displayOrder: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Category state: 'existing' | 'new'
   const [catMode, setCatMode] = useState("existing");
@@ -59,14 +66,19 @@ export default function AdminGallery() {
     setShowModal(true);
   };
 
+  // Object URLs are held until revoked, so release them when previews change
+  // or the component unmounts.
+  useEffect(() => () => previews.forEach(URL.revokeObjectURL), [previews]);
+
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
+    previews.forEach(URL.revokeObjectURL);
     setSelectedFiles(files);
-    const urls = files.map((f) => URL.createObjectURL(f));
-    setPreviews(urls);
+    setPreviews(files.map((f) => URL.createObjectURL(f)));
   };
 
   const removeFile = (idx) => {
+    URL.revokeObjectURL(previews[idx]);
     setSelectedFiles((prev) => prev.filter((_, i) => i !== idx));
     setPreviews((prev) => prev.filter((_, i) => i !== idx));
   };
@@ -92,8 +104,8 @@ export default function AdminGallery() {
         const res = await uploadAPI.upload(file);
         await galleryAPI.create({ imageUrl: res.data.url, category, caption });
         successCount++;
-      } catch {
-        toast.error(`Failed to upload ${file.name}`);
+      } catch (error) {
+        toast.error(apiErrorMessage(error, `Failed to upload ${file.name}`));
       }
     }
     setUploading(false);
@@ -111,8 +123,37 @@ export default function AdminGallery() {
       await galleryAPI.delete(id);
       toast.success("Removed");
       load();
-    } catch {
-      toast.error("Failed to delete");
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Failed to delete"));
+    }
+  };
+
+  const openEdit = (img) => {
+    setEditing(img);
+    setEditForm({
+      category: img.category || "",
+      caption: img.caption || "",
+      displayOrder: img.displayOrder ?? "",
+    });
+  };
+
+  const saveEdit = async (e) => {
+    e.preventDefault();
+    if (!editing) return;
+    setSavingEdit(true);
+    try {
+      await galleryAPI.update(editing.id, {
+        category: editForm.category.trim().toLowerCase().replace(/\s+/g, "-"),
+        caption: editForm.caption,
+        displayOrder: editForm.displayOrder === "" ? null : parseInt(editForm.displayOrder, 10),
+      });
+      toast.success("Image updated");
+      setEditing(null);
+      load();
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Failed to update"));
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -174,15 +215,115 @@ export default function AdminGallery() {
                 <span className="text-pub-gold text-xs uppercase">
                   {img.category}
                 </span>
-                <button
-                  onClick={() => handleDelete(img.id)}
-                  className="bg-red-500 text-white rounded-full p-2 hover:bg-red-400 transition-colors mt-1"
-                >
-                  <HiTrash size={16} />
-                </button>
+                <div className="flex gap-2 mt-1">
+                  <button
+                    onClick={() => openEdit(img)}
+                    title="Edit caption, category or order"
+                    className="bg-blue-500 text-white rounded-full p-2 hover:bg-blue-400 transition-colors"
+                  >
+                    <HiPencil size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(img.id)}
+                    title="Delete permanently"
+                    className="bg-red-500 text-white rounded-full p-2 hover:bg-red-400 transition-colors"
+                  >
+                    <HiTrash size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editing && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4">
+          <form
+            onSubmit={saveEdit}
+            className="bg-gray-900 border border-white/10 rounded-2xl p-6 w-full max-w-md"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="font-display text-white text-xl font-bold">Edit Image</h2>
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="text-white/50 hover:text-white"
+              >
+                <HiX size={22} />
+              </button>
+            </div>
+
+            <img
+              src={resolveImageUrl(editing.imageUrl, FALLBACK_GALLERY)}
+              alt={editing.caption || "Gallery"}
+              className="w-full h-40 object-cover rounded-lg mb-4"
+              onError={(e) => {
+                e.target.src = FALLBACK_GALLERY;
+              }}
+            />
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
+                  Category
+                </label>
+                <input
+                  list="gallery-categories"
+                  value={editForm.category}
+                  onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                  placeholder="food"
+                  className={inputCls}
+                />
+                <datalist id="gallery-categories">
+                  {existingCategories.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
+
+              <div>
+                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
+                  Caption
+                </label>
+                <input
+                  value={editForm.caption}
+                  onChange={(e) => setEditForm((f) => ({ ...f, caption: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
+                  Display Order
+                </label>
+                <input
+                  type="number"
+                  value={editForm.displayOrder}
+                  onChange={(e) => setEditForm((f) => ({ ...f, displayOrder: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditing(null)}
+                  className="flex-1 border border-white/20 text-white/70 py-2.5 rounded-lg hover:bg-white/5 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="flex-1 btn-primary disabled:opacity-50 text-sm"
+                >
+                  {savingEdit ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       )}
 

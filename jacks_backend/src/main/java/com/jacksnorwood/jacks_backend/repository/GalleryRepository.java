@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface GalleryRepository extends JpaRepository<Gallery, Long> {
-    List<Gallery> findByCategory(String category);
-    List<Gallery> findAllByOrderByDisplayOrderAsc();
+    // Ordered, and case-insensitive so categories typed with different casing
+    // in the admin panel still group together on the public page.
+    List<Gallery> findByCategoryIgnoreCaseOrderByDisplayOrderAscIdAsc(String category);
+    List<Gallery> findAllByOrderByDisplayOrderAscIdAsc();
 }

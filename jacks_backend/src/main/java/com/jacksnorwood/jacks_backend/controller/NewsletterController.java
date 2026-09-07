@@ -18,13 +18,10 @@ public class NewsletterController {
 
     /** Public: subscribe */
     @PostMapping("/subscribe")
-    public ResponseEntity<?> subscribe(@RequestBody Map<String, String> body) {
-        String email = body.get("email");
-        if (email == null || email.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
-        }
-        String name = body.getOrDefault("name", "");
-        return ResponseEntity.ok(newsletterService.subscribe(email.trim(), name));
+    public ResponseEntity<NewsletterDTO> subscribe(@RequestBody Map<String, String> body) {
+        // Validation (blank / malformed address) lives in the service and surfaces
+        // as a 400 through GlobalExceptionHandler.
+        return ResponseEntity.ok(newsletterService.subscribe(body.get("email"), body.getOrDefault("name", "")));
     }
 
     /** Public: unsubscribe */
@@ -40,10 +37,25 @@ public class NewsletterController {
         return ResponseEntity.ok(newsletterService.getAll());
     }
 
-    /** Admin: send newsletter */
+    /** Admin: remove a subscriber */
+    @DeleteMapping("/subscribers/{id}")
+    public ResponseEntity<Void> deleteSubscriber(@PathVariable Long id) {
+        newsletterService.deleteSubscriber(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Admin: send a newsletter.
+     *
+     * Returns as soon as the send is queued — the delivery itself runs on the
+     * mail executor, so a large subscriber list no longer holds the request open
+     * past the gateway timeout.
+     */
     @PostMapping("/send")
-    public ResponseEntity<Map<String, String>> send(@RequestBody NewsletterDTO dto) {
+    public ResponseEntity<Map<String, Object>> send(@RequestBody NewsletterDTO dto) {
         newsletterService.sendNewsletter(dto.getSubject(), dto.getBody(), dto.getImageUrl());
-        return ResponseEntity.ok(Map.of("message", "Newsletter sent successfully"));
+        return ResponseEntity.accepted().body(Map.of(
+                "message", "Newsletter queued for delivery",
+                "recipients", newsletterService.subscriberCount()));
     }
 }

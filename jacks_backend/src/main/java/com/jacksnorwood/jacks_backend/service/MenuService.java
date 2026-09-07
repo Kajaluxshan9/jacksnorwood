@@ -3,8 +3,11 @@ package com.jacksnorwood.jacks_backend.service;
 import com.jacksnorwood.jacks_backend.dto.ItemSizeDTO;
 import com.jacksnorwood.jacks_backend.dto.MenuCategoryDTO;
 import com.jacksnorwood.jacks_backend.dto.MenuItemDTO;
+import com.jacksnorwood.jacks_backend.dto.ConvertCategoryRequest;
 import com.jacksnorwood.jacks_backend.dto.MenuSubcategoryDTO;
 import com.jacksnorwood.jacks_backend.entity.*;
+import com.jacksnorwood.jacks_backend.exception.BadRequestException;
+import com.jacksnorwood.jacks_backend.exception.ResourceNotFoundException;
 import com.jacksnorwood.jacks_backend.repository.MenuCategoryRepository;
 import com.jacksnorwood.jacks_backend.repository.MenuItemRepository;
 import com.jacksnorwood.jacks_backend.repository.MenuSubcategoryRepository;
@@ -22,11 +25,15 @@ public class MenuService {
     private final MenuItemRepository menuItemRepository;
     private final MenuCategoryRepository menuCategoryRepository;
     private final MenuSubcategoryRepository menuSubcategoryRepository;
+    private final FileStorageService fileStorage;
 
     // ── Categories ──────────────────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public List<MenuCategoryDTO> getAllCategories() {
-        return menuCategoryRepository.findAllByOrderByDisplayOrderAsc()
+        // Fetch-joins the items so mapping them below does not trigger a query
+        // per category.
+        return menuCategoryRepository.findAllWithItems()
                 .stream().map(this::toCategoryDTO).collect(Collectors.toList());
     }
 
@@ -42,7 +49,7 @@ public class MenuService {
 
     public MenuCategoryDTO updateCategory(Long id, MenuCategoryDTO dto) {
         MenuCategory cat = menuCategoryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Category not found"));
+                .orElseThrow(() -> ResourceNotFoundException.of("Category", id));
         if (dto.getName() != null)        cat.setName(dto.getName());
         if (dto.getDescription() != null) cat.setDescription(dto.getDescription());
         if (dto.getImageUrl() != null)    cat.setImageUrl(dto.getImageUrl());
@@ -52,21 +59,54 @@ public class MenuService {
 
     @Transactional
     public void deleteCategory(Long id) {
-        // Null out subcategory→category FK to avoid orphaned rows, then delete subcategories
+        MenuCategory category = menuCategoryRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Category", id));
+
+        // Order matters throughout: every foreign key pointing at a row must be
+        // cleared before that row is deleted.
+
+        // 1. The category's own items, and their images.
+        List<MenuItem> items = menuItemRepository.findByCategoryId(id);
+        items.forEach(item -> {
+            fileStorage.deleteQuietly(item.getImageUrl());
+            item.setSubcategory(null);
+            item.setCategory(null);
+        });
+        menuItemRepository.saveAll(items);
+        menuItemRepository.flush();
+        menuItemRepository.deleteAll(items);
+        menuItemRepository.flush();
+
+        // 2. Any subcategories, plus items filed under them that live in a
+        //    different category and must therefore survive.
         List<MenuSubcategory> subs = menuSubcategoryRepository.findByCategoryIdOrderByDisplayOrderAsc(id);
-        subs.forEach(s -> s.setCategory(null));
-        menuSubcategoryRepository.saveAll(subs);
-        menuSubcategoryRepository.deleteAll(subs);
-        menuCategoryRepository.deleteById(id);
+        if (!subs.isEmpty()) {
+            List<Long> subIds = subs.stream().map(MenuSubcategory::getId).collect(Collectors.toList());
+            List<MenuItem> stillReferencing = menuItemRepository.findBySubcategoryIdIn(subIds);
+            stillReferencing.forEach(i -> i.setSubcategory(null));
+            menuItemRepository.saveAll(stillReferencing);
+            menuItemRepository.flush();
+
+            subs.forEach(s -> s.setCategory(null));
+            menuSubcategoryRepository.saveAll(subs);
+            menuSubcategoryRepository.deleteAll(subs);
+            menuSubcategoryRepository.flush();
+        }
+
+        // 3. The category itself.
+        fileStorage.deleteQuietly(category.getImageUrl());
+        menuCategoryRepository.delete(category);
     }
 
     // ── Subcategories ────────────────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public List<MenuSubcategoryDTO> getAllSubcategories() {
         return menuSubcategoryRepository.findAllByOrderByDisplayOrderAsc()
                 .stream().map(this::toSubcategoryDTO).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<MenuSubcategoryDTO> getSubcategoriesByCategoryId(Long categoryId) {
         return menuSubcategoryRepository.findByCategoryIdOrderByDisplayOrderAsc(categoryId)
                 .stream().map(this::toSubcategoryDTO).collect(Collectors.toList());
@@ -88,7 +128,7 @@ public class MenuService {
 
     public MenuSubcategoryDTO updateSubcategory(Long id, MenuSubcategoryDTO dto) {
         MenuSubcategory sub = menuSubcategoryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Subcategory not found"));
+                .orElseThrow(() -> ResourceNotFoundException.of("Subcategory", id));
         if (dto.getName() != null)        sub.setName(dto.getName());
         if (dto.getImageUrl() != null)    sub.setImageUrl(dto.getImageUrl());
         if (dto.getDisplayOrder() != null) sub.setDisplayOrder(dto.getDisplayOrder());
@@ -100,32 +140,100 @@ public class MenuService {
 
     @Transactional
     public void deleteSubcategory(Long id) {
-        // Null out the FK on any items that reference this subcategory to avoid FK violation
-        List<MenuItem> referencing = menuItemRepository.findAll().stream()
-                .filter(i -> i.getSubcategory() != null && i.getSubcategory().getId().equals(id))
-                .collect(Collectors.toList());
+        MenuSubcategory sub = menuSubcategoryRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Subcategory", id));
+
+        // Null out the FK on referencing items so the delete cannot violate it.
+        List<MenuItem> referencing = menuItemRepository.findBySubcategoryId(id);
         referencing.forEach(i -> i.setSubcategory(null));
         menuItemRepository.saveAll(referencing);
-        menuSubcategoryRepository.deleteById(id);
+        menuItemRepository.flush();
+
+        fileStorage.deleteQuietly(sub.getImageUrl());
+        menuSubcategoryRepository.delete(sub);
+    }
+
+    /**
+     * Converts a whole category into a subcategory of another category, moving
+     * its items across and removing the now-empty original.
+     *
+     * Done server-side and transactionally: the admin panel previously issued a
+     * create, then one update per item, then a delete. Any failure in the middle
+     * left items stranded between two categories with the source already
+     * partially emptied, and there was no safe way to re-run it.
+     */
+    @Transactional
+    public MenuSubcategoryDTO convertCategoryToSubcategory(ConvertCategoryRequest request) {
+        Long sourceId = request.getSourceCategoryId();
+        Long targetId = request.getTargetCategoryId();
+
+        if (sourceId.equals(targetId)) {
+            throw new BadRequestException("Choose a different category to nest this one under");
+        }
+
+        MenuCategory source = menuCategoryRepository.findById(sourceId)
+                .orElseThrow(() -> ResourceNotFoundException.of("Category", sourceId));
+        MenuCategory target = menuCategoryRepository.findById(targetId)
+                .orElseThrow(() -> ResourceNotFoundException.of("Category", targetId));
+
+        String name = (request.getName() != null && !request.getName().isBlank())
+                ? request.getName().trim()
+                : source.getName();
+
+        MenuSubcategory created = menuSubcategoryRepository.save(MenuSubcategory.builder()
+                .name(name)
+                .imageUrl(source.getImageUrl())
+                .displayOrder(source.getDisplayOrder())
+                .category(target)
+                .build());
+
+        // Move every item (active or not) into the new subcategory.
+        List<MenuItem> items = menuItemRepository.findByCategoryId(sourceId);
+        items.forEach(item -> {
+            item.setCategory(target);
+            item.setSubcategory(created);
+        });
+        menuItemRepository.saveAll(items);
+        menuItemRepository.flush();
+
+        // Detach and remove the source category's own subcategories, then the
+        // category itself. Items have already been moved off it, so nothing is
+        // cascade-deleted here.
+        List<MenuSubcategory> oldSubs =
+                menuSubcategoryRepository.findByCategoryIdOrderByDisplayOrderAsc(sourceId);
+        if (!oldSubs.isEmpty()) {
+            oldSubs.forEach(s -> s.setCategory(null));
+            menuSubcategoryRepository.saveAll(oldSubs);
+            menuSubcategoryRepository.deleteAll(oldSubs);
+            menuSubcategoryRepository.flush();
+        }
+
+        menuCategoryRepository.delete(source);
+
+        return toSubcategoryDTO(created);
     }
 
     // ── Items ────────────────────────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public List<MenuItemDTO> getAllItems() {
         return menuItemRepository.findByIsActiveTrue()
                 .stream().map(this::toItemDTO).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<MenuItemDTO> getAllItemsAdmin() {
         return menuItemRepository.findAll()
                 .stream().map(this::toItemDTO).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<MenuItemDTO> getPopularItems() {
         return menuItemRepository.findByIsPopularTrueAndIsActiveTrue()
                 .stream().map(this::toItemDTO).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<MenuItemDTO> getItemsByCategory(Long categoryId) {
         return menuItemRepository.findByCategoryIdAndIsActiveTrue(categoryId)
                 .stream().map(this::toItemDTO).collect(Collectors.toList());
@@ -133,8 +241,22 @@ public class MenuService {
 
     @Transactional
     public MenuItemDTO createItem(MenuItemDTO dto) {
+        if (dto.getName() == null || dto.getName().isBlank()) {
+            throw new BadRequestException("Item name is required");
+        }
+        if (dto.getCategoryId() == null) {
+            throw new BadRequestException("A category must be selected");
+        }
+        // The admin form labels price as optional ("leave 0 if using sizes"), so
+        // treat a missing price as zero rather than failing on the NOT NULL column.
+        if (dto.getPrice() == null) {
+            dto.setPrice(java.math.BigDecimal.ZERO);
+        }
+        if (dto.getPrice().signum() < 0) {
+            throw new BadRequestException("Price cannot be negative");
+        }
         MenuCategory category = menuCategoryRepository.findById(dto.getCategoryId())
-                .orElseThrow(() -> new RuntimeException("Category not found"));
+                .orElseThrow(() -> ResourceNotFoundException.of("Category", dto.getCategoryId()));
         MenuSubcategory subcategory = null;
         if (dto.getSubcategoryId() != null) {
             subcategory = menuSubcategoryRepository.findById(dto.getSubcategoryId()).orElse(null);
@@ -144,6 +266,7 @@ public class MenuService {
                 .name(dto.getName())
                 .description(dto.getDescription())
                 .price(dto.getPrice())
+                .imageUrl(dto.getImageUrl())
                 .category(category)
                 .subcategory(subcategory)
                 .isPopular(dto.getIsPopular() != null ? dto.getIsPopular() : false)
@@ -170,20 +293,36 @@ public class MenuService {
     @Transactional
     public MenuItemDTO updateItem(Long id, MenuItemDTO dto) {
         MenuItem item = menuItemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Item not found"));
+                .orElseThrow(() -> ResourceNotFoundException.of("Menu item", id));
         if (dto.getCategoryId() != null) {
             MenuCategory cat = menuCategoryRepository.findById(dto.getCategoryId())
-                    .orElseThrow(() -> new RuntimeException("Category not found"));
+                    .orElseThrow(() -> ResourceNotFoundException.of("Category", dto.getCategoryId()));
             item.setCategory(cat);
         }
+        // Only touch the subcategory when the caller actually addressed it.
+        // Clearing it on every payload that omitted the field meant a partial
+        // update silently detached the item from its subcategory.
         if (dto.getSubcategoryId() != null) {
-            menuSubcategoryRepository.findById(dto.getSubcategoryId()).ifPresent(item::setSubcategory);
-        } else {
+            MenuSubcategory sub = menuSubcategoryRepository.findById(dto.getSubcategoryId())
+                    .orElseThrow(() -> ResourceNotFoundException.of("Subcategory", dto.getSubcategoryId()));
+            item.setSubcategory(sub);
+        } else if (dto.isSubcategoryCleared()) {
             item.setSubcategory(null);
+        }
+        if (dto.getImageUrl() != null) {
+            String previous = item.getImageUrl();
+            String next = dto.getImageUrl().isBlank() ? null : dto.getImageUrl();
+            if (previous != null && !previous.equals(next)) {
+                fileStorage.deleteQuietly(previous);
+            }
+            item.setImageUrl(next);
         }
         if (dto.getName() != null)        item.setName(dto.getName());
         if (dto.getDescription() != null) item.setDescription(dto.getDescription());
-        if (dto.getPrice() != null)       item.setPrice(dto.getPrice());
+        if (dto.getPrice() != null) {
+            if (dto.getPrice().signum() < 0) throw new BadRequestException("Price cannot be negative");
+            item.setPrice(dto.getPrice());
+        }
         if (dto.getIsPopular() != null)   item.setIsPopular(dto.getIsPopular());
         if (dto.getIsSpicy() != null)     item.setIsSpicy(dto.getIsSpicy());
         if (dto.getIsVegan() != null)     item.setIsVegan(dto.getIsVegan());
@@ -204,7 +343,13 @@ public class MenuService {
         return toItemDTO(menuItemRepository.save(item));
     }
 
-    public void deleteItem(Long id) { menuItemRepository.deleteById(id); }
+    @Transactional
+    public void deleteItem(Long id) {
+        MenuItem item = menuItemRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Menu item", id));
+        fileStorage.deleteQuietly(item.getImageUrl());
+        menuItemRepository.delete(item);
+    }
 
     // ── Mapping helpers ──────────────────────────────────────────────────────────
 
@@ -214,6 +359,7 @@ public class MenuService {
         dto.setName(item.getName());
         dto.setDescription(item.getDescription());
         dto.setPrice(item.getPrice());
+        dto.setImageUrl(item.getImageUrl());
         dto.setIsPopular(item.getIsPopular());
         dto.setIsSpicy(item.getIsSpicy());
         dto.setIsVegan(item.getIsVegan());

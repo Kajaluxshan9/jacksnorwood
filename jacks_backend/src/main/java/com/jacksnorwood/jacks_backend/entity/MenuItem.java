@@ -1,6 +1,7 @@
 package com.jacksnorwood.jacks_backend.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import lombok.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -26,6 +27,8 @@ public class MenuItem {
     @Column(nullable = false)
     private BigDecimal price;
 
+    private String imageUrl;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id")
     private MenuCategory category;
@@ -34,7 +37,10 @@ public class MenuItem {
     @JoinColumn(name = "subcategory_id")
     private MenuSubcategory subcategory;
 
+    // EAGER so every DTO mapping has the sizes available, and batched so that
+    // loading N items costs one extra query rather than N.
     @Builder.Default
+    @BatchSize(size = 100)
     @OneToMany(mappedBy = "menuItem", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<ItemSize> sizes = new ArrayList<>();
 

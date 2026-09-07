@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/hero-images")
@@ -28,6 +29,18 @@ public class HeroImageController {
     @PostMapping
     public ResponseEntity<HeroImageDTO> create(@RequestBody HeroImageDTO dto) {
         return ResponseEntity.ok(heroImageService.create(dto));
+    }
+
+    /** Toggle active, or move a single image to a given position. */
+    @PutMapping("/{id}")
+    public ResponseEntity<HeroImageDTO> update(@PathVariable Long id, @RequestBody HeroImageDTO dto) {
+        return ResponseEntity.ok(heroImageService.update(id, dto));
+    }
+
+    /** Apply a whole new ordering at once. Body: { "ids": [3, 1, 2] } */
+    @PutMapping("/reorder")
+    public ResponseEntity<List<HeroImageDTO>> reorder(@RequestBody Map<String, List<Long>> body) {
+        return ResponseEntity.ok(heroImageService.reorder(body.get("ids")));
     }
 
     @DeleteMapping("/{id}")

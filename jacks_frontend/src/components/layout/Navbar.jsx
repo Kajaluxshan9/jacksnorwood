@@ -40,6 +40,9 @@ function DropdownNav({ label, to, items }) {
     return () => document.removeEventListener('pointerdown', handler);
   }, []);
 
+  // Close on navigation - including browser back/forward, which never passes
+  // through our click handlers.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setPinned(false); setOpen(false); }, [location]);
 
   const isActive = location.pathname === to || location.pathname.startsWith(to + '/');
@@ -124,7 +127,9 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // As above: dismiss the mobile menu whenever the route changes, from any source.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsOpen(false);
     setMobileMenu(null);
   }, [location]);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import {
   HiMenuAlt2, HiTag, HiCalendar, HiPhotograph,
   HiClipboardList, HiLogout, HiMenu, HiChartBar, HiCog, HiNewspaper, HiUserGroup, HiMail
@@ -31,7 +31,10 @@ export default function AdminLayout() {
     navigate('/admin/login');
   };
 
-  const SidebarContent = () => (
+  // Defined as JSX rather than an inline component. A component declared inside
+  // the render body is a brand-new type on every render, so React unmounted and
+  // remounted the whole sidebar (losing its scroll position) on each state change.
+  const sidebarContent = (
     <div className="flex flex-col h-full">
       <div className="p-6 border-b border-white/10">
         <img src={logoImg} alt="Jack's Norwood" className="h-14 w-auto object-contain" />
@@ -79,7 +82,7 @@ export default function AdminLayout() {
     <div className="flex h-screen bg-gray-950 overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 flex-shrink-0 bg-pub-brown border-r border-white/10 flex-col">
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* Mobile Sidebar Overlay */}
@@ -87,7 +90,7 @@ export default function AdminLayout() {
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div className="fixed inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
           <aside className="relative w-64 bg-pub-brown border-r border-white/10 flex flex-col z-10">
-            <SidebarContent />
+            {sidebarContent}
           </aside>
         </div>
       )}

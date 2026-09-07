@@ -2,7 +2,10 @@ import { FaFire, FaLeaf, FaStar } from 'react-icons/fa';
 import { resolveImageUrl } from '../../services/api';
 import { FALLBACK_IMAGE } from '../../config/constants';
 
-// Match a dish to a transparent Jack's cut-out by keywords in its name.
+// Fallback artwork when a menu item has no uploaded photo of its own.
+// An item's real imageUrl always wins; these keyword matches only fill the gap
+// (until this release menu items had no image field at all, so every card fell
+// through to a guessed stock image no matter what the admin uploaded).
 // Order matters — most specific first (e.g. "butter chicken" before generic).
 const DISH_IMAGE_RULES = [
   [/butter chicken/i,                   '/images/dishes/butter-chicken.webp'],

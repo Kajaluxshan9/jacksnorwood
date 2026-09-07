@@ -17,7 +17,7 @@ public class GalleryController {
 
     @GetMapping
     public ResponseEntity<List<GalleryDTO>> getAll(@RequestParam(required = false) String category) {
-        if (category != null && !category.isBlank()) {
+        if (category != null && !category.isBlank() && !"all".equalsIgnoreCase(category)) {
             return ResponseEntity.ok(galleryService.getByCategory(category));
         }
         return ResponseEntity.ok(galleryService.getAll());
@@ -26,6 +26,11 @@ public class GalleryController {
     @PostMapping
     public ResponseEntity<GalleryDTO> create(@RequestBody GalleryDTO dto) {
         return ResponseEntity.ok(galleryService.create(dto));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<GalleryDTO> update(@PathVariable Long id, @RequestBody GalleryDTO dto) {
+        return ResponseEntity.ok(galleryService.update(id, dto));
     }
 
     @DeleteMapping("/{id}")

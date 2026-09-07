@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { eventAPI, resolveImageUrl } from "../../services/api";
+import { eventAPI, resolveImageUrl, apiErrorMessage } from "../../services/api";
+import { formatApiDate, formatApiTime } from "../../utils/date";
 import { HiPlus, HiPencil, HiTrash, HiX } from "react-icons/hi";
 import { FaCalendarAlt, FaClock } from "react-icons/fa";
 import ImageUpload from "../../components/ui/ImageUpload";
@@ -35,7 +36,7 @@ export default function AdminEvents() {
 
   const openAdd = () => {
     setEditing(null);
-    reset();
+    reset({ title: "", description: "", date: "", time: "", reservationLink: "", active: true });
     setImageUrl("");
     setShowModal(true);
   };
@@ -53,7 +54,17 @@ export default function AdminEvents() {
 
   const onSubmit = async (data) => {
     try {
-      const payload = { ...data, imageUrl };
+      // Empty date/time inputs submit "" , which Jackson cannot read as a
+      // LocalDate/LocalTime — the request came back 400 with only "Failed to
+      // save event" to show for it. Both columns are nullable, so send null.
+      const payload = {
+        ...data,
+        imageUrl,
+        date: data.date ? data.date : null,
+        time: data.time ? data.time : null,
+        reservationLink: data.reservationLink?.trim() ? data.reservationLink.trim() : null,
+        active: data.active ?? true,
+      };
       if (editing) {
         await eventAPI.update(editing.id, payload);
         toast.success("Event updated!");
@@ -64,8 +75,8 @@ export default function AdminEvents() {
       setShowModal(false);
       reset();
       load();
-    } catch {
-      toast.error("Failed to save event");
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Failed to save event"));
     }
   };
 
@@ -75,8 +86,8 @@ export default function AdminEvents() {
       await eventAPI.delete(id);
       toast.success("Deleted");
       load();
-    } catch {
-      toast.error("Failed to delete");
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Failed to delete"));
     }
   };
 
@@ -123,13 +134,13 @@ export default function AdminEvents() {
                     {event.date && (
                       <span className="text-pub-gold text-xs flex items-center gap-1">
                         <FaCalendarAlt size={10} />
-                        {event.date}
+                        {formatApiDate(event.date, { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
                     )}
                     {event.time && (
                       <span className="text-pub-gold text-xs flex items-center gap-1">
                         <FaClock size={10} />
-                        {event.time?.slice(0, 5)}
+                        {formatApiTime(event.time)}
                       </span>
                     )}
                     <span

@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { FaFacebook, FaInstagram } from 'react-icons/fa';
 import { FaTiktok } from 'react-icons/fa6';
-import { settingsAPI } from '../../services/api';
+import { settingsAPI, apiErrorMessage } from '../../services/api';
 
 const SOCIAL_FIELDS = [
   { key: 'social.facebook',  label: 'Facebook URL',  icon: FaFacebook,  placeholder: 'https://facebook.com/yourpage', color: 'text-blue-400' },
@@ -27,7 +27,7 @@ export default function AdminSettings() {
         });
       })
       .catch(() => toast.error('Failed to load settings'));
-  }, []);
+  }, [reset]);
 
   const onSubmit = async (data) => {
     try {
@@ -40,8 +40,8 @@ export default function AdminSettings() {
       await settingsAPI.updateAll(payload);
       toast.success('Settings saved!');
       reset(data); // Mark form as clean
-    } catch {
-      toast.error('Failed to save settings');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Failed to save settings'));
     }
   };
 

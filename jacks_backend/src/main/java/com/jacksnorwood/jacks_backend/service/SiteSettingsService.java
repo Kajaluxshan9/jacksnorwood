@@ -20,12 +20,6 @@ public class SiteSettingsService {
                 .collect(Collectors.toMap(SiteSettings::getKey, s -> s.getValue() != null ? s.getValue() : ""));
     }
 
-    public void update(String key, String value) {
-        SiteSettings entity = repo.findById(key).orElse(new SiteSettings(key, ""));
-        entity.setValue(value);
-        repo.save(entity);
-    }
-
     @Transactional
     public void updateAll(Map<String, String> settings) {
         for (Map.Entry<String, String> entry : settings.entrySet()) {

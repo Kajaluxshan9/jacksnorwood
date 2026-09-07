@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { teamAPI, uploadAPI, resolveImageUrl } from '../../services/api';
+import { teamAPI, uploadAPI, resolveImageUrl, apiErrorMessage } from '../../services/api';
 import { HiPlus, HiPencil, HiTrash, HiX } from 'react-icons/hi';
 import { FaUpload } from 'react-icons/fa';
 import { FALLBACK_TEAM } from "../../config/constants";
@@ -60,7 +60,12 @@ export default function AdminTeam() {
     const file = e.target.files[0];
     if (!file) return;
     setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    // Release the previous blob before replacing it; object URLs are held
+    // until revoked.
+    setImagePreview((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -94,8 +99,8 @@ export default function AdminTeam() {
       }
       closeModal();
       load();
-    } catch {
-      toast.error("Failed to save member");
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Failed to save member"));
     } finally {
       setSaving(false);
       setUploading(false);
@@ -108,8 +113,8 @@ export default function AdminTeam() {
       await teamAPI.delete(id);
       toast.success("Removed");
       load();
-    } catch {
-      toast.error("Failed to delete");
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Failed to delete"));
     }
   };
 

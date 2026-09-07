@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { contactAPI } from '../../services/api';
-import { HiMail, HiMailOpen, HiPhone } from 'react-icons/hi';
+import { contactAPI, resolveImageUrl, apiErrorMessage } from '../../services/api';
+import { HiMail, HiMailOpen, HiPhone, HiDocumentText, HiTrash } from 'react-icons/hi';
 import { FaEnvelope } from 'react-icons/fa';
 
 export default function AdminMessages() {
@@ -17,7 +17,17 @@ export default function AdminMessages() {
     try {
       await contactAPI.markRead(id);
       load();
-    } catch { toast.error('Failed to update'); }
+    } catch (error) { toast.error(apiErrorMessage(error, 'Failed to update')); }
+  };
+
+  const handleDelete = async (msg) => {
+    if (!confirm(`Delete the message from ${msg.name}? This also removes any attached CV.`)) return;
+    try {
+      await contactAPI.delete(msg.id);
+      if (selected?.id === msg.id) setSelected(null);
+      toast.success('Message deleted');
+      load();
+    } catch (error) { toast.error(apiErrorMessage(error, 'Failed to delete')); }
   };
 
   const openMessage = (msg) => {
@@ -69,6 +79,11 @@ export default function AdminMessages() {
                     </div>
                     <p className="text-white/40 text-xs">{msg.email}</p>
                     <p className="text-white/50 text-xs mt-1 truncate">{msg.message}</p>
+                    {msg.cvUrl && (
+                      <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-semibold uppercase tracking-wider text-pub-gold">
+                        <HiDocumentText size={11} /> CV attached
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -99,12 +114,42 @@ export default function AdminMessages() {
               <div className="bg-gray-800 rounded-xl p-5 mb-6">
                 <p className="text-white/80 leading-relaxed text-sm whitespace-pre-wrap">{selected.message}</p>
               </div>
-              <a
-                href={`mailto:${selected.email}?subject=Re: Your message to Jack's Norwood`}
-                className="btn-primary flex items-center justify-center gap-2 text-sm"
-              >
-                <FaEnvelope /> Reply via Email
-              </a>
+              {selected.subject && (
+                <p className="text-white/40 text-xs uppercase tracking-wider mb-4">
+                  Subject: <span className="text-white/70">{selected.subject}</span>
+                </p>
+              )}
+
+              {selected.cvUrl && (
+                <a
+                  href={resolveImageUrl(selected.cvUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 bg-gray-800 border border-pub-gold/30 rounded-xl px-4 py-3 mb-4 hover:border-pub-gold transition-colors"
+                >
+                  <HiDocumentText size={20} className="text-pub-gold flex-shrink-0" />
+                  <span className="text-white/80 text-sm flex-1">Open attached CV / resume</span>
+                  <span className="text-white/30 text-xs">
+                    {selected.cvUrl.split('.').pop()?.toUpperCase()}
+                  </span>
+                </a>
+              )}
+
+              <div className="flex gap-3">
+                <a
+                  href={`mailto:${selected.email}?subject=Re: Your message to Jack's Norwood`}
+                  className="btn-primary flex-1 flex items-center justify-center gap-2 text-sm"
+                >
+                  <FaEnvelope /> Reply via Email
+                </a>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(selected)}
+                  className="px-4 rounded-lg bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 transition-colors flex items-center gap-2 text-sm"
+                >
+                  <HiTrash size={15} /> Delete
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-48 text-white/30">

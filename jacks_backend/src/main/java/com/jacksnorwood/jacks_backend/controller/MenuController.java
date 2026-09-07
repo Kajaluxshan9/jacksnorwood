@@ -1,9 +1,11 @@
 package com.jacksnorwood.jacks_backend.controller;
 
+import com.jacksnorwood.jacks_backend.dto.ConvertCategoryRequest;
 import com.jacksnorwood.jacks_backend.dto.MenuCategoryDTO;
 import com.jacksnorwood.jacks_backend.dto.MenuItemDTO;
 import com.jacksnorwood.jacks_backend.dto.MenuSubcategoryDTO;
 import com.jacksnorwood.jacks_backend.service.MenuService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,6 +40,16 @@ public class MenuController {
     public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
         menuService.deleteCategory(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Turn a category into a subcategory of another category, in one atomic step.
+     * Replaces a multi-request client-side flow that could fail half-way.
+     */
+    @PostMapping("/categories/convert")
+    public ResponseEntity<MenuSubcategoryDTO> convertCategory(
+            @Valid @RequestBody ConvertCategoryRequest request) {
+        return ResponseEntity.ok(menuService.convertCategoryToSubcategory(request));
     }
 
     // ── Subcategories ─────────────────────────────────────────────────────────
