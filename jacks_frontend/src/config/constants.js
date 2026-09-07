@@ -37,10 +37,27 @@ export const GOOGLE_MAPS_EMBED_URL =
 export { OPENING_HOURS } from './hours';
 
 // ─── Hero image override ────────────────────────────────────
-// Used only when no hero images have been uploaded in the admin panel.
+// Used only when no hero images are active in the admin panel.
 // May be an absolute URL or an uploaded "/uploads/..." path — callers pass it
 // through resolveImageUrl() so backend-relative paths resolve correctly.
-export const HERO_IMAGE_URL = import.meta.env.VITE_HERO_IMAGE_URL || "";
+//
+// Validated rather than trusted: production had a Windows file path left in
+// here by a copy/paste. The hero is a CSS background-image, which has no
+// onError hook, so a value like that renders as a blank hero with no way to
+// recover. Anything that is not a usable http(s) URL or an absolute path is
+// ignored, so the bundled default image is used instead.
+const isUsableImageRef = (value) => {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (trimmed.includes("\\")) return false;              // Windows path
+  return /^https?:\/\//i.test(trimmed) || trimmed.startsWith("/");
+};
+
+const CONFIGURED_HERO_IMAGE_URL = import.meta.env.VITE_HERO_IMAGE_URL || "";
+
+export const HERO_IMAGE_URL = isUsableImageRef(CONFIGURED_HERO_IMAGE_URL)
+  ? CONFIGURED_HERO_IMAGE_URL.trim()
+  : "";
 
 // ─── Fallback / Placeholder Images ─────────────────────────
 // Real Unsplash photos that match the pub/restaurant theme.
