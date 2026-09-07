@@ -30,43 +30,11 @@ export const GOOGLE_MAPS_EMBED_URL =
   `https://maps.google.com/maps?q=${encodeURIComponent(RESTAURANT_ADDRESS)}&t=m&z=15&output=embed`;
 
 // ─── Opening Hours ──────────────────────────────────────────
-// Single source of truth: footer, contact page, reservation sidebar, home page
-// and the LocalBusiness structured data all read from here.
-//
-// Each band reads its own env var (written out statically — see the note above).
-// Leave a var unset to use the default; set it to an empty string to hide that
-// band entirely, e.g. when the week splits into two groups instead of three.
-//
-// `schema` is the machine-readable form used for JSON-LD. Keep it in step with
-// `time` whenever the hours change.
-const HOURS_BANDS = [
-  {
-    day: "Monday - Thursday",
-    time: import.meta.env.VITE_HOURS_MON_THU,
-    fallback: "08:00 AM - 08:00 PM",
-    schema: { days: ["Monday", "Tuesday", "Wednesday", "Thursday"], opens: "08:00", closes: "20:00" },
-  },
-  {
-    day: "Friday - Saturday",
-    time: import.meta.env.VITE_HOURS_FRI_SAT,
-    fallback: "08:00 AM - 10:00 PM",
-    schema: { days: ["Friday", "Saturday"], opens: "08:00", closes: "22:00" },
-  },
-  {
-    day: "Sunday",
-    time: import.meta.env.VITE_HOURS_SUN,
-    fallback: "08:00 AM - 08:00 PM",
-    schema: { days: ["Sunday"], opens: "08:00", closes: "20:00" },
-  },
-];
-
-export const OPENING_HOURS = HOURS_BANDS
-  .map(({ day, time, fallback, schema }) => ({
-    day,
-    time: time === undefined ? fallback : String(time).trim(),
-    schema,
-  }))
-  .filter((band) => band.time !== "");
+// Lives in ./hours.js because resolving it correctly needs real logic: two
+// different variable-naming schemes are in use across deployments, and showing
+// the wrong opening hours to customers is worse than any other config mistake
+// on this site.
+export { OPENING_HOURS } from './hours';
 
 // ─── Hero image override ────────────────────────────────────
 // Used only when no hero images have been uploaded in the admin panel.

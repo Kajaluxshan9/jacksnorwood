@@ -179,11 +179,22 @@ Links appear in the website footer. Icons are only shown for platforms that have
 | `VITE_GOOGLE_MAPS_EMBED_URL` | Optional | Built from the address | Google Maps embed `src` URL. If left empty, a map is generated from `VITE_RESTAURANT_ADDRESS` instead. See the [Adding a Google Map](#adding-a-google-map) section for how to get this URL. |
 | `VITE_HERO_IMAGE_URL` | Optional | Bundled image | Fallback hero background image. Leave empty to use the default bundled image. Set to a `/uploads/...` path to use a custom image. Note: hero images uploaded via the Admin → Hero Images page take priority over this value. |
 | `VITE_ONLINE_ORDER_URL` | Optional | Built-in provider link | Destination of the "Order Online" links in the navbar and footer. |
-| `VITE_HOURS_MON_THU` | Optional | `08:00 AM - 08:00 PM` | Opening hours for Monday–Thursday. Shown in the footer, contact page, reservation sidebar, home page, and the LocalBusiness structured data. |
-| `VITE_HOURS_FRI_SAT` | Optional | `08:00 AM - 10:00 PM` | Opening hours for Friday–Saturday. |
-| `VITE_HOURS_SUN` | Optional | `08:00 AM - 08:00 PM` | Opening hours for Sunday. Set any hours variable to an empty value to hide that row entirely (e.g. if you only need two day-bands). |
+| `VITE_HOURS_SUN_WED` | Optional | `08:00 AM - 08:00 PM` | Opening hours for Sunday–Wednesday. **This is the grouping production uses.** Shown in the footer, contact page, reservation sidebar, home page, and the LocalBusiness structured data. |
+| `VITE_HOURS_THU_SAT` | Optional | `08:00 AM - 10:00 PM` | Opening hours for Thursday–Saturday. |
+| `VITE_HOURS_MON_THU` | Optional | — | Alternative three-band grouping: Monday–Thursday. |
+| `VITE_HOURS_FRI_SAT` | Optional | — | Alternative three-band grouping: Friday–Saturday. |
+| `VITE_HOURS_SUN` | Optional | — | Alternative three-band grouping: Sunday. |
 
-> **Note on the hours variables:** these names must match `src/config/constants.js` exactly. Vite substitutes `import.meta.env.VITE_*` by matching the literal text at build time, so a typo does not raise an error — the value is silently replaced with `undefined` and the built-in default is used instead.
+> **Note on the hours variables.** Two groupings are supported — `SUN_WED`/`THU_SAT`
+> (two bands) and `MON_THU`/`FRI_SAT`/`SUN` (three bands). Pick one. If both are set,
+> the two-band names win, because that is the schedule the live site publishes.
+> Set any of them to an empty value to hide that row.
+>
+> These names must appear verbatim in `src/config/hours.js`. Vite substitutes
+> `import.meta.env.VITE_*` by matching the literal text at build time, so a name the
+> code does not read is not an error — it is silently `undefined`, and the default is
+> used instead. That failure mode is why the resolution logic lives in its own module
+> with tests: wrong opening hours reach customers through Google as well as the site.
 
 ### Backend (`jacks_backend/.env`)
 
