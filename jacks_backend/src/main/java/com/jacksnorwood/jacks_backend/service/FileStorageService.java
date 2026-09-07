@@ -64,9 +64,24 @@ public class FileStorageService {
 
     @PostConstruct
     void init() throws IOException {
-        root = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path configured = Paths.get(uploadDir);
+        root = configured.toAbsolutePath().normalize();
         Files.createDirectories(root);
-        log.info("Upload directory: {}", root);
+
+        if (!configured.isAbsolute()) {
+            log.warn("UPLOAD_DIR is a relative path ('{}'), resolved against the current working "
+                    + "directory to {}. If the service is ever started from a different directory, "
+                    + "new uploads go somewhere else and previously uploaded files stop resolving "
+                    + "(images 404 and fall back to placeholders) even though the database still "
+                    + "references them. Set UPLOAD_DIR to an absolute path in production.",
+                    uploadDir, root);
+        } else {
+            log.info("Upload directory: {}", root);
+        }
+
+        if (!Files.isWritable(root)) {
+            log.error("Upload directory {} is not writable - uploads will fail.", root);
+        }
     }
 
     /** Stores an image, returning the public "/uploads/..." URL. */
