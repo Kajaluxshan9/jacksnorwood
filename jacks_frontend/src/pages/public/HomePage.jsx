@@ -6,7 +6,7 @@ import { FaMapMarkerAlt, FaPhone, FaClock, FaChevronLeft, FaChevronRight, FaArro
 import { menuAPI, promotionAPI, heroImageAPI, resolveImageUrl } from '../../services/api';
 import MenuItemCard from '../../components/ui/MenuItemCard';
 import SectionHeader from '../../components/ui/SectionHeader';
-import SpecialsPopup from '../../components/ui/SpecialsPopup';
+import WhatsOnPopup from '../../components/ui/WhatsOnPopup';
 import { FALLBACK_HERO, FALLBACK_PROMOTION, FALLBACK_GALLERY, RESTAURANT_PHONE, RESTAURANT_ADDRESS, OPENING_HOURS, GOOGLE_MAPS_EMBED_URL, HERO_IMAGE_URL } from '../../config/constants';
 
 const fadeUp = {
@@ -67,7 +67,7 @@ export default function HomePage() {
         description="Jack's Norwood is your neighbourhood pub and restaurant in Norwood, Ontario. Great food, cold drinks, daily specials, and live events. Open 7 days a week."
         canonical="/"
       />
-      <SpecialsPopup />
+      <WhatsOnPopup />
 
       {/* ── HERO ─────────────────────────────────────────────────────────────── */}
       <section className="relative min-h-screen flex items-end overflow-hidden">

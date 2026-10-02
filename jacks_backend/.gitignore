@@ -38,3 +38,7 @@ build/
 
 # Uploaded files (images, PDFs) — create this folder manually after cloning
 uploads/
+
+# pm2 process files can hold real credentials (DB password, JWT secret, SMTP
+# app password) - keep them on the server only.
+ecosystem.config.js
