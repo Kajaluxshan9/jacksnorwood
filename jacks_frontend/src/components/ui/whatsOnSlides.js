@@ -1,5 +1,5 @@
 import { FALLBACK_EVENT, FALLBACK_PROMOTION } from '../../config/constants';
-import { formatApiDate, formatApiTime } from '../../utils/date';
+import { formatApiDate, formatApiTime12 } from '../../utils/date';
 
 /**
  * Data shaping for the "What's On" welcome panel.
@@ -42,7 +42,7 @@ export function buildSlides(events = [], promotions = [], today = new Date()) {
     imageUrl: e.imageUrl,
     fallback: FALLBACK_EVENT,
     date: e.date ? formatApiDate(e.date, { weekday: 'long', day: 'numeric', month: 'long' }) : '',
-    time: formatApiTime(e.time),
+    time: formatApiTime12(e.time),
     ctaLabel: 'See Event Details',
     to: '/events',
   }));

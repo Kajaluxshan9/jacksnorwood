@@ -40,7 +40,8 @@ describe('buildSlides', () => {
     const [slide] = buildSlides([event({ date: '2030-05-10', time: '20:00:00' })], [], monday);
     // Built from local date parts, so it must not land on the 9th.
     expect(slide.date).toContain('10');
-    expect(slide.time).toBe('20:00');
+    // 12-hour for customers: "20:00" reads as a typo on a pub website.
+    expect(slide.time).toBe('8:00 PM');
   });
 
   it('keeps only daily specials that match today', () => {

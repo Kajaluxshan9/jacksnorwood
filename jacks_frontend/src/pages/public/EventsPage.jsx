@@ -7,7 +7,7 @@ import { eventAPI, heroImageAPI, resolveImageUrl } from '../../services/api';
 import PageHero from '../../components/ui/PageHero';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { FALLBACK_EVENT, FALLBACK_HERO } from '../../config/constants';
-import { formatApiDate, formatApiTime } from '../../utils/date';
+import { formatApiDate, formatApiTime12 } from '../../utils/date';
 
 export default function EventsPage() {
   const [events,     setEvents]     = useState([]);
@@ -22,7 +22,7 @@ export default function EventsPage() {
   // Shared helpers: "2026-01-05" must not be parsed as UTC midnight, which
   // rendered every event one day early for viewers west of Greenwich.
   const formatDate = formatApiDate;
-  const formatTime = formatApiTime;
+  const formatTime = formatApiTime12;
 
   const heroImg = heroImages[0]?.imageUrl ? resolveImageUrl(heroImages[0].imageUrl) : FALLBACK_HERO;
 

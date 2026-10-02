@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { formatApiDate, formatApiTime, todayLocalISO } from './date';
+import { formatApiDate, formatApiTime, formatApiTime12, todayLocalISO } from './date';
 
 /**
  * The backend sends plain calendar values ("2026-01-05", "19:30:00").
@@ -79,5 +79,29 @@ describe('todayLocalISO', () => {
 
   it('round-trips through formatApiDate', () => {
     expect(formatApiDate(todayLocalISO())).not.toBe('');
+  });
+});
+
+describe('formatApiTime12', () => {
+  it('renders afternoon and evening times the way customers read them', () => {
+    expect(formatApiTime12('14:00:00')).toBe('2:00 PM');
+    expect(formatApiTime12('20:00:00')).toBe('8:00 PM');
+    expect(formatApiTime12('19:30:00')).toBe('7:30 PM');
+  });
+
+  it('handles midnight and noon, the two that trip up 12-hour clocks', () => {
+    expect(formatApiTime12('00:00:00')).toBe('12:00 AM');
+    expect(formatApiTime12('12:00:00')).toBe('12:00 PM');
+    expect(formatApiTime12('00:30:00')).toBe('12:30 AM');
+  });
+
+  it('keeps morning times unpadded', () => {
+    expect(formatApiTime12('09:05:00')).toBe('9:05 AM');
+  });
+
+  it('returns an empty string for missing or unparseable input', () => {
+    expect(formatApiTime12(null)).toBe('');
+    expect(formatApiTime12('')).toBe('');
+    expect(formatApiTime12('not-a-time')).toBe('');
   });
 });

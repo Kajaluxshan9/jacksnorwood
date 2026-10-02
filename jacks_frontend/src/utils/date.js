@@ -26,9 +26,24 @@ export function formatApiDate(value, options) {
   );
 }
 
-/** "19:30:00" -> "19:30". */
+/** "19:30:00" -> "19:30". 24-hour; fine for admin screens. */
 export function formatApiTime(value) {
   return value ? String(value).slice(0, 5) : "";
+}
+
+/**
+ * "19:30:00" -> "7:30 PM", and "14:00:00" -> "2:00 PM".
+ *
+ * Use this anywhere a customer reads the time. The 24-hour form is not how
+ * opening times are written in Canada and reads as a typo on a pub website.
+ */
+export function formatApiTime12(value) {
+  if (!value) return "";
+  const [h, m] = String(value).split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return "";
+  const meridiem = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${meridiem}`;
 }
 
 /**
