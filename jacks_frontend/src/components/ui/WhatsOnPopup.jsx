@@ -6,7 +6,9 @@ import {
   FaTimes, FaChevronLeft, FaChevronRight, FaCalendarAlt, FaClock, FaArrowRight,
 } from 'react-icons/fa';
 import { eventAPI, promotionAPI, resolveImageUrl } from '../../services/api';
-import { buildSlides, seenThisSession, markSeen, OPEN_DELAY_MS } from './whatsOnSlides';
+import {
+  buildSlides, seenThisSession, markSeen, OPEN_DELAY_MS, SLIDE_INTERVAL_MS,
+} from './whatsOnSlides';
 
 /**
  * "What's On" — the welcome panel shown once per visit on the home page.
@@ -33,6 +35,12 @@ export default function WhatsOnPopup() {
   const [[index, direction], setPosition] = useState([0, 0]);
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
+
+  // Rotation pauses while the pointer is over the panel, and `interactionNonce`
+  // restarts the countdown whenever the visitor navigates by hand - so a manual
+  // jump always gets a full interval before anything moves on its own.
+  const [paused, setPaused] = useState(false);
+  const [interactionNonce, setInteractionNonce] = useState(0);
 
   const closeButtonRef = useRef(null);
   const previouslyFocused = useRef(null);
@@ -72,11 +80,21 @@ export default function WhatsOnPopup() {
   const close = useCallback(() => setVisible(false), []);
 
   const total = slides.length;
+
+  // `auto` distinguishes the timer's own advance from a deliberate one, so only
+  // the latter restarts the countdown.
   const go = useCallback(
-    (delta) => setPosition(([i]) => [total ? (i + delta + total) % total : 0, delta]),
+    (delta, auto = false) => {
+      setPosition(([i]) => [total ? (i + delta + total) % total : 0, delta]);
+      if (!auto) setInteractionNonce((n) => n + 1);
+    },
     [total],
   );
-  const jumpTo = useCallback((i) => setPosition(([current]) => [i, i > current ? 1 : -1]), []);
+
+  const jumpTo = useCallback((i) => {
+    setPosition(([current]) => [i, i > current ? 1 : -1]);
+    setInteractionNonce((n) => n + 1);
+  }, []);
 
   // ── Dialog behaviour: scroll lock, focus, keyboard ────────────────────────
   useEffect(() => {
@@ -103,6 +121,30 @@ export default function WhatsOnPopup() {
       }
     };
   }, [visible, close, go, total]);
+
+  /**
+   * Advance every 10 seconds while the panel is open.
+   *
+   * Held back when there is nothing to rotate, while the pointer is resting on
+   * the panel (so it cannot move mid-read), and while the tab is in the
+   * background - a hidden tab would otherwise burn through every slide and the
+   * visitor would return to an arbitrary one.
+   *
+   * Skipped entirely under prefers-reduced-motion: content that moves on its
+   * own is exactly what that setting asks us not to do. The arrows and dots
+   * still work.
+   */
+  useEffect(() => {
+    if (!visible || total <= 1 || paused || reduceMotion) return undefined;
+
+    const tick = () => {
+      if (document.visibilityState === 'visible') go(1, true);
+    };
+    const timer = setInterval(tick, SLIDE_INTERVAL_MS);
+    return () => clearInterval(timer);
+    // interactionNonce is a dependency on purpose: bumping it tears down the
+    // timer and starts a fresh one, which is what "reset the countdown" means.
+  }, [visible, total, paused, reduceMotion, go, interactionNonce]);
 
   const slide = slides[index];
 
@@ -173,6 +215,13 @@ export default function WhatsOnPopup() {
             aria-modal="true"
             aria-labelledby="whats-on-title"
             onClick={(e) => e.stopPropagation()}
+            // Hover only. Focus-based pausing looks sensible but breaks here:
+            // the panel moves focus to the close button on open for keyboard
+            // users, which would pause the rotation immediately and never
+            // resume. Keyboard users still get control - using the arrows or
+            // dots restarts the countdown.
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
             className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-pub-dark shadow-[0_32px_90px_-20px_rgba(0,0,0,0.85)] ring-1 ring-white/10 md:max-w-5xl md:flex-row md:rounded-3xl lg:max-w-6xl"
             style={{ maxHeight: '92vh' }}
           >

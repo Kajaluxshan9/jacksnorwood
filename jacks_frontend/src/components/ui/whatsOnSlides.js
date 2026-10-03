@@ -10,6 +10,9 @@ import { restaurantWeekday } from '../../utils/timezone';
  */
 const SESSION_KEY = 'whats_on_popup_shown';
 export const OPEN_DELAY_MS = 900;
+
+/** How long each item stays on screen before the panel moves to the next. */
+export const SLIDE_INTERVAL_MS = 10000;
 const MAX_EVENTS = 3;
 const MAX_SPECIALS = 2;
 

@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { MotionGlobalConfig } from 'framer-motion';
+
+// Framer's AnimatePresence uses mode="wait": the outgoing slide must finish
+// animating before the next one mounts. Those animations are driven by
+// requestAnimationFrame, which fake timers freeze, so without this the panel
+// would appear stuck and every rotation assertion would fail for the wrong
+// reason. Skipping animations makes transitions resolve immediately.
+MotionGlobalConfig.skipAnimations = true;
 
 vi.mock('../../services/api', () => ({
   eventAPI: { getUpcoming: vi.fn() },
@@ -143,5 +151,100 @@ describe('WhatsOnPopup', () => {
     await show();
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
     expect(screen.queryByLabelText('Next')).toBeNull();
+  });
+});
+
+describe('automatic rotation', () => {
+  const two = [event(), event({ id: 2, title: 'Trivia Tuesday' })];
+
+  const advance = async (ms) => {
+    await act(async () => { vi.advanceTimersByTime(ms); });
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    sessionStorage.clear();
+    eventAPI.getUpcoming.mockResolvedValue({ data: two });
+    promotionAPI.getActive.mockResolvedValue({ data: [] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.style.overflow = '';
+  });
+
+  it('moves to the next item after 10 seconds', async () => {
+    await show();
+    await waitFor(() => expect(screen.getByText('Live Music Friday')).toBeTruthy());
+
+    await advance(9000);
+    expect(screen.getByText('Live Music Friday')).toBeTruthy(); // not yet
+
+    await advance(1500);
+    await waitFor(() => expect(screen.getByText('Trivia Tuesday')).toBeTruthy());
+  });
+
+  it('wraps around to the first item', async () => {
+    await show();
+    await waitFor(() => expect(screen.getByText('Live Music Friday')).toBeTruthy());
+
+    await advance(10500);
+    await waitFor(() => expect(screen.getByText('Trivia Tuesday')).toBeTruthy());
+    await advance(10500);
+    await waitFor(() => expect(screen.getByText('Live Music Friday')).toBeTruthy());
+  });
+
+  it('pauses while the pointer rests on the panel', async () => {
+    await show();
+    const dialog = await waitFor(() => screen.getByRole('dialog'));
+    fireEvent.mouseEnter(dialog);
+
+    await advance(25000);
+
+    // Nothing should move out from under someone who is reading it.
+    expect(screen.getByText('Live Music Friday')).toBeTruthy();
+
+    fireEvent.mouseLeave(dialog);
+    await advance(10500);
+    await waitFor(() => expect(screen.getByText('Trivia Tuesday')).toBeTruthy());
+  });
+
+  it('restarts the countdown after a manual jump', async () => {
+    await show();
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+
+    await advance(8000);           // 8s elapsed on item 1
+    fireEvent.click(screen.getByLabelText('Next'));
+    await waitFor(() => expect(screen.getByText('Trivia Tuesday')).toBeTruthy());
+
+    await advance(8000);           // would have fired at 10s from the original start
+    expect(screen.getByText('Trivia Tuesday')).toBeTruthy();
+
+    await advance(2500);           // a full interval since the click
+    await waitFor(() => expect(screen.getByText('Live Music Friday')).toBeTruthy());
+  });
+
+  it('does not rotate when there is only one item', async () => {
+    eventAPI.getUpcoming.mockResolvedValue({ data: [event()] });
+    await show();
+    await waitFor(() => expect(screen.getByText('Live Music Friday')).toBeTruthy());
+
+    await advance(30000);
+
+    expect(screen.getByText('Live Music Friday')).toBeTruthy();
+    expect(screen.queryByLabelText('Next')).toBeNull();
+  });
+
+  it('stops rotating once the panel is closed', async () => {
+    await show();
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    await advance(30000);
+
+    // No dialog, and crucially no timer left running against unmounted state.
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
