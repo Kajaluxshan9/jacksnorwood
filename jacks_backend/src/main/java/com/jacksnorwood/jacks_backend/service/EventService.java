@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import com.jacksnorwood.jacks_backend.exception.BadRequestException;
 import com.jacksnorwood.jacks_backend.exception.ResourceNotFoundException;
 import java.time.LocalDate;
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,16 +24,26 @@ public class EventService {
     private final FileStorageService fileStorage;
 
     /**
-     * Events the public "Upcoming Events" page should show: active, and not in
-     * the past. Undated events are treated as always-upcoming and listed last,
-     * since there is nothing to compare them against.
+     * What the public "Upcoming Events" page shows: active events whose display
+     * window is currently open. See EventRepository for the exact rules.
      */
     public List<EventDTO> getUpcomingEvents() {
-        LocalDate today = LocalDate.now();
-        List<Event> upcoming = new ArrayList<>(
-                eventRepository.findByActiveTrueAndDateGreaterThanEqualOrderByDateAscTimeAsc(today));
-        upcoming.addAll(eventRepository.findByActiveTrueAndDateIsNullOrderByIdAsc());
-        return upcoming.stream().map(this::toDTO).collect(Collectors.toList());
+        return eventRepository.findVisible(LocalDateTime.now(), LocalDate.now())
+                .stream().map(this::toDTO).collect(Collectors.toList());
+    }
+
+    /**
+     * Is this event on the public site right now?
+     *
+     * Mirrors the repository query so the admin list can show the same verdict
+     * without a second round trip, and so the rule is stated once in Java for
+     * anyone reading the service.
+     */
+    static boolean isVisibleNow(Event e, LocalDateTime now) {
+        if (!Boolean.TRUE.equals(e.getActive())) return false;
+        if (e.getDisplayFrom() != null && e.getDisplayFrom().isAfter(now)) return false;
+        if (e.getDisplayUntil() != null) return !e.getDisplayUntil().isBefore(now);
+        return e.getDate() == null || !e.getDate().isBefore(now.toLocalDate());
     }
 
     public List<EventDTO> getAllEvents() {
@@ -44,10 +54,13 @@ public class EventService {
         if (dto.getTitle() == null || dto.getTitle().isBlank()) {
             throw new BadRequestException("Event title is required");
         }
+        validateWindow(dto.getDisplayFrom(), dto.getDisplayUntil());
         Event e = Event.builder()
                 .title(dto.getTitle()).description(dto.getDescription())
                 .imageUrl(dto.getImageUrl()).date(dto.getDate()).time(dto.getTime())
                 .reservationLink(dto.getReservationLink())
+                .displayFrom(dto.getDisplayFrom())
+                .displayUntil(dto.getDisplayUntil())
                 .active(dto.getActive() != null ? dto.getActive() : true).build();
         EventDTO saved = toDTO(eventRepository.save(e));
 
@@ -82,11 +95,27 @@ public class EventService {
             }
             e.setImageUrl(next);
         }
+        // Validate against the values that will end up stored, not just the
+        // ones in this payload - a partial update can move one end of the window
+        // while the other stays as it is.
+        validateWindow(
+                dto.isDisplayFromPresent() ? dto.getDisplayFrom() : e.getDisplayFrom(),
+                dto.isDisplayUntilPresent() ? dto.getDisplayUntil() : e.getDisplayUntil());
+
+        if (dto.isDisplayFromPresent())  e.setDisplayFrom(dto.getDisplayFrom());
+        if (dto.isDisplayUntilPresent()) e.setDisplayUntil(dto.getDisplayUntil());
+
         if (dto.isReservationLinkPresent()) {
             String link = dto.getReservationLink();
             e.setReservationLink(link == null || link.isBlank() ? null : link);
         }
         return toDTO(eventRepository.save(e));
+    }
+
+    private void validateWindow(LocalDateTime from, LocalDateTime until) {
+        if (from != null && until != null && until.isBefore(from)) {
+            throw new BadRequestException("The display period must end after it starts");
+        }
     }
 
     public void delete(Long id) {
@@ -101,6 +130,9 @@ public class EventService {
         dto.setId(e.getId()); dto.setTitle(e.getTitle()); dto.setDescription(e.getDescription());
         dto.setImageUrl(e.getImageUrl()); dto.setDate(e.getDate()); dto.setTime(e.getTime());
         dto.setReservationLink(e.getReservationLink()); dto.setActive(e.getActive());
+        dto.setDisplayFrom(e.getDisplayFrom());
+        dto.setDisplayUntil(e.getDisplayUntil());
+        dto.setVisibleNow(isVisibleNow(e, LocalDateTime.now()));
         return dto;
     }
 }

@@ -62,7 +62,11 @@ const ROUTE_META = [
  * date somebody typed once.
  */
 function generateSitemap(distDir) {
-  const lastmod = new Date().toISOString().split('T')[0]
+  // The restaurant's calendar date. toISOString() is UTC, so a build run in
+  // the evening Eastern would stamp tomorrow's date.
+  const lastmod = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
   const priority = { '/': '1.0', '/menu': '0.9', '/reservation': '0.9' }
   const changefreq = { '/': 'weekly', '/menu': 'weekly', '/promotions': 'weekly', '/events': 'weekly' }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { newsletterAPI, apiErrorMessage } from '../../services/api';
+import { formatApiDateTime } from '../../utils/date';
 import { HiMail, HiTrash } from 'react-icons/hi';
 import { FaPaperPlane } from 'react-icons/fa';
 import ImageUpload from '../../components/ui/ImageUpload';
@@ -302,7 +303,7 @@ export default function AdminNewsletter() {
                     </td>
                     <td className="px-4 py-3 text-white/30 text-xs hidden md:table-cell">
                       {s.subscribedAt
-                        ? new Date(s.subscribedAt).toLocaleDateString("en-CA")
+                        ? formatApiDateTime(s.subscribedAt, { dateStyle: "medium" })
                         : "—"}
                     </td>
                     <td className="px-4 py-3 text-right">

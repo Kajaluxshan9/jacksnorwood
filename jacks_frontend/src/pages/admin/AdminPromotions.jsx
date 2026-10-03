@@ -6,6 +6,8 @@ import { HiPencil, HiTrash, HiX } from 'react-icons/hi';
 import { FaSun, FaStar } from 'react-icons/fa';
 import ImageUpload from '../../components/ui/ImageUpload';
 import { FALLBACK_PROMOTION } from "../../config/constants";
+import { formatApiDateTime } from "../../utils/date";
+import { restaurantZoneLabel } from "../../utils/timezone";
 
 const DAYS = [
   "Monday",
@@ -385,7 +387,7 @@ export default function AdminPromotions() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
-                        Start Date & Time
+                        Start Date &amp; Time ({restaurantZoneLabel()})
                       </label>
                       <input
                         type="datetime-local"
@@ -395,7 +397,7 @@ export default function AdminPromotions() {
                     </div>
                     <div>
                       <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
-                        End Date & Time
+                        End Date &amp; Time ({restaurantZoneLabel()})
                       </label>
                       <input
                         type="datetime-local"
@@ -476,10 +478,7 @@ function PromoCard({ p, onEdit, onDelete }) {
         {!isDaily && p.endDateTime && (
           <p className="text-white/30 text-xs mb-2">
             Ends:{" "}
-            {new Date(p.endDateTime).toLocaleString("en-CA", {
-              dateStyle: "short",
-              timeStyle: "short",
-            })}
+            {formatApiDateTime(p.endDateTime, { dateStyle: "short", timeStyle: "short" })}
           </p>
         )}
         <div className="flex gap-2 mt-3">

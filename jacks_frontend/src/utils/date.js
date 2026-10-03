@@ -26,6 +26,28 @@ export function formatApiDate(value, options) {
   );
 }
 
+/**
+ * "2026-10-12T17:00:00" -> "Oct 12, 2026, 5:00 p.m."
+ *
+ * The backend sends LocalDateTime with no zone, meaning restaurant wall clock.
+ * Handing that to `new Date()` parses it in the *viewer's* zone; the digits
+ * survive today only because it is then formatted back in that same zone. The
+ * moment the API emits a trailing "Z" or an offset, every one of those readings
+ * shifts by hours with nothing failing. Reading the parts directly removes that
+ * dependence entirely.
+ */
+export function formatApiDateTime(value, options) {
+  if (!value) return "";
+  const [datePart, timePart = "00:00"] = String(value).split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh = 0, mm = 0] = timePart.split(":").map(Number);
+  if (!y || !m || !d) return "";
+  return new Date(y, m - 1, d, hh, mm).toLocaleString(
+    "en-CA",
+    options || { dateStyle: "medium", timeStyle: "short" },
+  );
+}
+
 /** "19:30:00" -> "19:30". 24-hour; fine for admin screens. */
 export function formatApiTime(value) {
   return value ? String(value).slice(0, 5) : "";
@@ -44,17 +66,4 @@ export function formatApiTime12(value) {
   const meridiem = h >= 12 ? "PM" : "AM";
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   return `${hour12}:${String(m).padStart(2, "0")} ${meridiem}`;
-}
-
-/**
- * Today as "YYYY-MM-DD" in the *browser's* timezone.
- *
- * Used for the `min` on date inputs. `toISOString().split('T')[0]` was wrong
- * here: it converts to UTC first, so during the evening in Ontario it returned
- * tomorrow's date and blocked same-day bookings.
- */
-export function todayLocalISO() {
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }

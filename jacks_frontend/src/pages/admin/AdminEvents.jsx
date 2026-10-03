@@ -1,14 +1,51 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { eventAPI, resolveImageUrl, apiErrorMessage } from "../../services/api";
 import { formatApiDate, formatApiTime } from "../../utils/date";
+import { restaurantNowLocalISO, restaurantZoneLabel } from "../../utils/timezone";
 import { HiPlus, HiPencil, HiTrash, HiX } from "react-icons/hi";
 import { FaCalendarAlt, FaClock } from "react-icons/fa";
 import ImageUpload from "../../components/ui/ImageUpload";
 import { FALLBACK_EVENT } from "../../config/constants";
 
 const FALLBACK = FALLBACK_EVENT;
+
+/**
+ * What the public currently sees for an event, in one word.
+ *
+ * `visibleNow` is computed by the server so this cannot drift from the real
+ * rule; the dates here only explain *why* it is hidden.
+ */
+function eventStatus(event) {
+  if (!event.active) {
+    return { label: "Hidden", className: "bg-red-500/20 text-red-400", hint: "Switched off in the admin panel" };
+  }
+  if (event.visibleNow) {
+    return {
+      label: "Live",
+      className: "bg-green-500/20 text-green-400",
+      hint: event.displayUntil ? `Showing until ${event.displayUntil.slice(0, 16).replace("T", " ")}` : "Showing on the website now",
+    };
+  }
+  // Both sides must be the same clock. This compared the stored wall-clock
+  // value against new Date().toISOString(), which is UTC - so the verdict
+  // was wrong by the size of the offset (4-5 hours for Eastern).
+  if (event.displayFrom && event.displayFrom.slice(0, 16) > restaurantNowLocalISO()) {
+    return {
+      label: "Scheduled",
+      className: "bg-blue-500/20 text-blue-300",
+      hint: `Goes live ${event.displayFrom.slice(0, 16).replace("T", " ")}`,
+    };
+  }
+  return {
+    label: "Ended",
+    className: "bg-stone-500/20 text-stone-300",
+    hint: event.displayUntil
+      ? `Display period ended ${event.displayUntil.slice(0, 16).replace("T", " ")}`
+      : "The event date has passed",
+  };
+}
 
 export default function AdminEvents() {
   const [events, setEvents] = useState([]);
@@ -20,6 +57,7 @@ export default function AdminEvents() {
     handleSubmit,
     reset,
     setValue,
+    control,
     formState: { isSubmitting },
   } = useForm();
   const [imageUrl, setImageUrl] = useState("");
@@ -36,7 +74,10 @@ export default function AdminEvents() {
 
   const openAdd = () => {
     setEditing(null);
-    reset({ title: "", description: "", date: "", time: "", reservationLink: "", active: true });
+    reset({
+      title: "", description: "", date: "", time: "", reservationLink: "",
+      displayFrom: "", displayUntil: "", active: true,
+    });
     setImageUrl("");
     setShowModal(true);
   };
@@ -49,6 +90,9 @@ export default function AdminEvents() {
     setValue("date", e.date);
     setValue("time", e.time ? e.time.slice(0, 5) : "");
     setValue("active", e.active);
+    // datetime-local wants "YYYY-MM-DDTHH:mm"; the API sends seconds too.
+    setValue("displayFrom", e.displayFrom ? e.displayFrom.slice(0, 16) : "");
+    setValue("displayUntil", e.displayUntil ? e.displayUntil.slice(0, 16) : "");
     setShowModal(true);
   };
 
@@ -63,6 +107,10 @@ export default function AdminEvents() {
         date: data.date ? data.date : null,
         time: data.time ? data.time : null,
         reservationLink: data.reservationLink?.trim() ? data.reservationLink.trim() : null,
+        // Same reasoning as date/time: an untouched datetime-local submits "",
+        // which is not a readable LocalDateTime. Null means "no limit".
+        displayFrom: data.displayFrom ? data.displayFrom : null,
+        displayUntil: data.displayUntil ? data.displayUntil : null,
         active: data.active ?? true,
       };
       if (editing) {
@@ -90,6 +138,35 @@ export default function AdminEvents() {
       toast.error(apiErrorMessage(error, "Failed to delete"));
     }
   };
+
+  // Mirrors the server rule so the admin sees the consequence while typing,
+  // rather than after saving.
+  // useWatch rather than watch(): it is the subscription-based API react-hook-form
+  // recommends, and the one AdminMenu already uses.
+  const watchedFrom = useWatch({ control, name: "displayFrom" });
+  const watchedUntil = useWatch({ control, name: "displayUntil" });
+  const watchedDate = useWatch({ control, name: "date" });
+
+  const windowError =
+    watchedFrom && watchedUntil && watchedUntil < watchedFrom
+      ? "The display period must end after it starts."
+      : "";
+
+  const windowPreview = (() => {
+    if (windowError) return "";
+    const nowIso = restaurantNowLocalISO();
+    if (watchedFrom && watchedFrom > nowIso) {
+      return `Scheduled - stays hidden until ${formatApiDate(watchedFrom.slice(0, 10), { day: "numeric", month: "short" })}.`;
+    }
+    if (watchedUntil && watchedUntil < nowIso) return "This period has already ended - the poster is hidden.";
+    if (watchedUntil) {
+      return `Visible now, until ${formatApiDate(watchedUntil.slice(0, 10), { day: "numeric", month: "short" })}.`;
+    }
+    if (watchedDate) return "Visible now, until the event date passes.";
+    return "Visible now, with no end date.";
+  })();
+
+  const zoneLabel = restaurantZoneLabel();
 
   const inputCls =
     "w-full bg-gray-800 border border-white/20 text-white placeholder-white/40 px-3 py-2 rounded-lg focus:outline-none focus:border-pub-gold text-sm";
@@ -144,9 +221,10 @@ export default function AdminEvents() {
                       </span>
                     )}
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${event.active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}
+                      className={`text-xs px-2 py-0.5 rounded-full ${eventStatus(event).className}`}
+                      title={eventStatus(event).hint}
                     >
-                      {event.active ? "Active" : "Hidden"}
+                      {eventStatus(event).label}
                     </span>
                   </div>
                   <h3 className="text-white font-semibold font-display mb-1">
@@ -229,7 +307,7 @@ export default function AdminEvents() {
                 </div>
                 <div>
                   <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
-                    Time
+                    Time ({zoneLabel})
                   </label>
                   <input
                     type="time"
@@ -238,6 +316,53 @@ export default function AdminEvents() {
                   />
                 </div>
               </div>
+              {/*
+                Publication window. Separate from the event date because when
+                something runs and when it should be advertised differ: a
+                Thanksgiving menu needs its poster up while pre-orders are open
+                and through the pickup days after the event itself.
+              */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-white/70 text-xs font-semibold uppercase tracking-wider">
+                  Display Period
+                </p>
+                <p className="text-white/35 text-xs mt-1 mb-3 leading-relaxed">
+                  When the poster is shown on the website. Leave both empty to use the
+                  default: visible straight away, and until the event date passes.
+                  <br />
+                  All times are restaurant time ({zoneLabel}, Norwood ON), whatever
+                  timezone you are in.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
+                      Show From
+                    </label>
+                    <input
+                      type="datetime-local"
+                      {...register("displayFrom")}
+                      className={inputCls}
+                    />
+                    <p className="text-white/25 text-[11px] mt-1">Empty = show immediately</p>
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
+                      Show Until
+                    </label>
+                    <input
+                      type="datetime-local"
+                      {...register("displayUntil")}
+                      className={inputCls}
+                    />
+                    <p className="text-white/25 text-[11px] mt-1">Empty = until the event date</p>
+                  </div>
+                </div>
+                {windowError && (
+                  <p className="text-red-400 text-xs mt-2">{windowError}</p>
+                )}
+                <p className="text-pub-gold/80 text-[11px] mt-3">{windowPreview}</p>
+              </div>
+
               <div>
                 <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
                   Reservation Link
@@ -266,7 +391,7 @@ export default function AdminEvents() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || Boolean(windowError)}
                   className="flex-1 btn-primary disabled:opacity-50 text-sm"
                 >
                   {isSubmitting ? "Saving..." : "Save"}

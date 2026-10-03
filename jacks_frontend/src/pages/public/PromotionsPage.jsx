@@ -7,6 +7,8 @@ import { promotionAPI, heroImageAPI, resolveImageUrl } from '../../services/api'
 import PageHero from '../../components/ui/PageHero';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { FALLBACK_PROMOTION, FALLBACK_HERO } from '../../config/constants';
+import { formatApiDateTime } from '../../utils/date';
+import { restaurantZoneLabel } from '../../utils/timezone';
 
 const TABS = [
   { key: 'DAILY',   label: 'Daily Specials',   icon: FaSun  },
@@ -69,7 +71,7 @@ function PromoCard({ promo, index }) {
             <FaCalendarAlt className="text-pub-gold" size={11} />
             <span>
               Valid until{' '}
-              {new Date(promo.endDateTime).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' })}
+              {formatApiDateTime(promo.endDateTime)} ({restaurantZoneLabel()})
             </span>
           </div>
         )}

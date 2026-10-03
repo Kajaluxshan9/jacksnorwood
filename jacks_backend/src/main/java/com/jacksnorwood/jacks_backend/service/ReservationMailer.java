@@ -31,6 +31,18 @@ public class ReservationMailer {
     private static final DateTimeFormatter TIME_FMT =
             DateTimeFormatter.ofPattern("h:mm a", Locale.CANADA);
 
+    /**
+     * Guests may book from anywhere, so the confirmation has to say which clock
+     * the time refers to. Derived from the zone rather than hardcoded, so it
+     * reads EDT in summer and EST in winter.
+     */
+    private String zoneLabel() {
+        return java.time.ZonedDateTime.now(
+                        java.time.ZoneId.of(com.jacksnorwood.jacks_backend
+                                .JacksBackendApplication.RESTAURANT_TIME_ZONE))
+                .format(DateTimeFormatter.ofPattern("zzz", Locale.CANADA));
+    }
+
     private final JavaMailSender mailSender;
 
     @Value("${spring.mail.username:}")
@@ -103,7 +115,7 @@ public class ReservationMailer {
                NewsletterMailer.escape(subheading) + "</p>" +
                "<table style='width:100%;border-collapse:collapse;margin:20px 0;font-size:15px;color:#44403c;'>" +
                row("Date", r.getDate() != null ? r.getDate().format(DATE_FMT) : "-") +
-               row("Time", r.getTime() != null ? r.getTime().format(TIME_FMT) : "-") +
+               row("Time", r.getTime() != null ? r.getTime().format(TIME_FMT) + " " + zoneLabel() : "-") +
                row("Guests", String.valueOf(r.getGuests())) +
                "</table>" +
                "<p style='color:#c8922a;font-weight:bold;'>&mdash; The Jack's Norwood Team</p></div>" +

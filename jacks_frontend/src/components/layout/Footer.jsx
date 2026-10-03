@@ -5,6 +5,7 @@ import { FaFacebook, FaInstagram } from 'react-icons/fa';
 import { FaTiktok } from 'react-icons/fa6';
 import logoImg from '../../assets/images/JN L 2.png';
 import { settingsAPI, newsletterAPI } from '../../services/api';
+import { restaurantToday } from '../../utils/timezone';
 import {
   ONLINE_ORDER_URL,
   RESTAURANT_ADDRESS,
@@ -24,7 +25,9 @@ const quickLinks = [
 ];
 
 export default function Footer() {
-  const currentYear = new Date().getFullYear();
+  // The restaurant's year: on New Year's Eve the two differ for several
+  // hours depending on where the visitor is.
+  const currentYear = restaurantToday().slice(0, 4);
   const [social, setSocial] = useState({ facebook: '', instagram: '', tiktok: '' });
   const [nlSubmitting, setNlSubmitting] = useState(false);
 

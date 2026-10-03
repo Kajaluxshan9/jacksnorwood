@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { FaCalendarCheck, FaUsers, FaClock, FaInfoCircle } from 'react-icons/fa';
 import { reservationAPI, heroImageAPI, resolveImageUrl, apiErrorMessage } from '../../services/api';
-import { todayLocalISO } from '../../utils/date';
+import { restaurantToday, restaurantZoneLabel } from '../../utils/timezone';
 import PageHero from '../../components/ui/PageHero';
 import { FALLBACK_HERO, RESTAURANT_PHONE, OPENING_HOURS } from '../../config/constants';
 
@@ -58,9 +58,10 @@ export default function ReservationPage() {
   const inputCls   = 'w-full bg-white border border-stone-200 text-pub-text placeholder-stone-400 px-4 py-3.5 focus:outline-none focus:border-pub-gold transition-colors duration-200 text-sm';
   const labelCls   = 'text-stone-400 text-xs tracking-[0.18em] uppercase mb-1.5 block font-medium';
   const errorCls   = 'text-red-500 text-xs mt-1';
-  // Local calendar date. toISOString() converts to UTC first, which in Ontario
-  // rolls over to tomorrow during the evening and blocked same-day bookings.
-  const today      = todayLocalISO();
+  // The restaurant's calendar date, not the guest's. Someone booking from
+  // another timezone must still be offered Norwood's today, and the server
+  // rejects past dates using that same clock.
+  const today      = restaurantToday();
   const heroImg    = heroImages[0]?.imageUrl ? resolveImageUrl(heroImages[0].imageUrl) : FALLBACK_HERO;
 
   return (
@@ -160,7 +161,9 @@ export default function ReservationPage() {
                       {errors.date && <p className={errorCls}>{errors.date.message}</p>}
                     </div>
                     <div>
-                      <label className={labelCls}>Time *</label>
+                      <label className={labelCls}>
+                        Time * <span className="normal-case tracking-normal text-stone-300">({restaurantZoneLabel()})</span>
+                      </label>
                       <select {...register('time', { required: 'Time required' })} className={inputCls}>
                         <option value="">Select time</option>
                         {TIMES.map((t) => <option key={t} value={t}>{t}</option>)}

@@ -128,19 +128,19 @@ class NewsletterAndContentServiceTest {
         @InjectMocks private EventService service;
 
         @Test
-        @DisplayName("'upcoming' excludes past events and includes undated ones")
-        void upcomingUsesDateFilter() {
+        @DisplayName("'upcoming' delegates to the display-window query")
+        void upcomingUsesVisibilityQuery() {
             Event future = Event.builder().title("Future").date(LocalDate.now().plusDays(5)).active(true).build();
             Event undated = Event.builder().title("Undated").active(true).build();
-            when(eventRepository.findByActiveTrueAndDateGreaterThanEqualOrderByDateAscTimeAsc(any()))
-                    .thenReturn(List.of(future));
-            when(eventRepository.findByActiveTrueAndDateIsNullOrderByIdAsc()).thenReturn(List.of(undated));
+            when(eventRepository.findVisible(any(), any())).thenReturn(List.of(future, undated));
 
             List<EventDTO> result = service.getUpcomingEvents();
 
             assertThat(result).extracting(EventDTO::getTitle).containsExactly("Future", "Undated");
-            // The old implementation returned every active event regardless of date.
-            verify(eventRepository).findByActiveTrueAndDateGreaterThanEqualOrderByDateAscTimeAsc(LocalDate.now());
+            // The original implementation returned every active event regardless
+            // of date; the window rules now live in one query (see
+            // EventDisplayWindowTest for the cases themselves).
+            verify(eventRepository).findVisible(any(), eq(LocalDate.now()));
         }
 
         @Test

@@ -22,10 +22,9 @@ public class DashboardService {
                 reservationRepository.countByStatus(ReservationStatus.PENDING),
                 menuItemRepository.count(),
                 promotionRepository.countByActiveTrue(),
-                // Matches the public "Upcoming Events" list: future/undated only,
-                // not simply "every active event ever created".
-                eventRepository.countByActiveTrueAndDateGreaterThanEqual(java.time.LocalDate.now())
-                        + eventRepository.countByActiveTrueAndDateIsNull(),
+                // Matches exactly what the public page lists: active events whose
+                // display window is open right now.
+                eventRepository.countVisible(java.time.LocalDateTime.now(), java.time.LocalDate.now()),
                 contactMessageRepository.countByIsReadFalse()
         );
     }

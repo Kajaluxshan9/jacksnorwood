@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { formatApiDate, formatApiTime, formatApiTime12, todayLocalISO } from './date';
+import { describe, it, expect } from 'vitest';
+import { formatApiDate, formatApiDateTime, formatApiTime, formatApiTime12 } from './date';
 
 /**
  * The backend sends plain calendar values ("2026-01-05", "19:30:00").
@@ -58,30 +58,6 @@ describe('formatApiTime', () => {
   });
 });
 
-describe('todayLocalISO', () => {
-  afterEach(() => vi.useRealTimers());
-
-  it('reports the local calendar date, not the UTC one', () => {
-    // 21:00 on 5 Jan in Toronto (UTC-5) is already 02:00 on 6 Jan UTC.
-    // toISOString() would return the 6th and block same-day bookings.
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 0, 5, 21, 0, 0));
-
-    expect(todayLocalISO()).toBe('2026-01-05');
-  });
-
-  it('zero-pads month and day', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 2, 9, 12, 0, 0));
-
-    expect(todayLocalISO()).toBe('2026-03-09');
-  });
-
-  it('round-trips through formatApiDate', () => {
-    expect(formatApiDate(todayLocalISO())).not.toBe('');
-  });
-});
-
 describe('formatApiTime12', () => {
   it('renders afternoon and evening times the way customers read them', () => {
     expect(formatApiTime12('14:00:00')).toBe('2:00 PM');
@@ -103,5 +79,31 @@ describe('formatApiTime12', () => {
     expect(formatApiTime12(null)).toBe('');
     expect(formatApiTime12('')).toBe('');
     expect(formatApiTime12('not-a-time')).toBe('');
+  });
+});
+
+describe('formatApiDateTime', () => {
+  it('renders the wall clock the backend sent, with no timezone conversion', () => {
+    // The API sends restaurant local time with no zone. The reading must be the
+    // same for every viewer, wherever they are.
+    const out = formatApiDateTime('2026-10-12T17:00:00');
+    expect(out).toContain('5:00');
+    expect(out).toMatch(/Oct(ober)? 12, 2026/);
+  });
+
+  it('is unaffected by how the engine would parse the raw string', () => {
+    // Built from parts, so a trailing Z on the input cannot shift the output.
+    expect(formatApiDateTime('2026-10-12T17:00:00'))
+      .toBe(formatApiDateTime('2026-10-12T17:00'));
+  });
+
+  it('accepts a custom format', () => {
+    expect(formatApiDateTime('2026-01-05T09:30:00', { dateStyle: 'short' })).toMatch(/2026/);
+  });
+
+  it('returns an empty string for missing or malformed input', () => {
+    expect(formatApiDateTime(null)).toBe('');
+    expect(formatApiDateTime('')).toBe('');
+    expect(formatApiDateTime('nonsense')).toBe('');
   });
 });

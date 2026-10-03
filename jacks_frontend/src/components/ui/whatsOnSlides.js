@@ -1,5 +1,6 @@
 import { FALLBACK_EVENT, FALLBACK_PROMOTION } from '../../config/constants';
 import { formatApiDate, formatApiTime12 } from '../../utils/date';
+import { restaurantWeekday } from '../../utils/timezone';
 
 /**
  * Data shaping for the "What's On" welcome panel.
@@ -31,7 +32,10 @@ export const markSeen = () => {
 
 /** Collapses events and promotions into one slide shape the panel can render. */
 export function buildSlides(events = [], promotions = [], today = new Date()) {
-  const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+  // Norwood's weekday, not the visitor's. Someone browsing from Sydney on
+  // Monday morning is still in Sunday evening at the pub, and should see
+  // Sunday's special.
+  const dayName = restaurantWeekday(today);
 
   const eventSlides = events.slice(0, MAX_EVENTS).map((e) => ({
     kind: 'event',

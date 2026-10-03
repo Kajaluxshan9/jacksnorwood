@@ -28,8 +28,11 @@ const show = async () => {
 };
 
 describe('buildSlides', () => {
-  // A Monday, so the Monday special qualifies.
-  const monday = new Date(2026, 0, 5);
+  // Noon EST on Monday 5 Jan 2026, given as a UTC instant.
+  // `new Date(2026, 0, 5)` would be local midnight on the machine running the
+  // test, which is a different weekday in Norwood - the very confusion the
+  // restaurant-clock helpers exist to remove.
+  const monday = new Date('2026-01-05T17:00:00Z');
 
   it('puts events before specials — events are time-sensitive', () => {
     const slides = buildSlides([event()], [daily()], monday);
